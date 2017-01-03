@@ -131,7 +131,8 @@ function(context, args)//list:true
     return admin_header+"\n"+ SuperAdmin().join("\n")
   }
 
-  let inn_admins=#db.f({main:"inn_admin_list"}).first().admins
+  let inn_admins=#db.f({type:"inn_admin_list"}).first().admins
+
   function MemberList()
   {
     let names=inn_admins.join(",").split(",") // this is just making a copy of the list because we are going to mutate it
@@ -147,13 +148,14 @@ function(context, args)//list:true
     }
     for(var i=0;i<inn_admins.length;++i) {
       if(!last_action[inn_admins[i]] || _START-last_action[inn_admins[i]]>20*24*3600*1000) {
-          RemoveAdmin(inn_admins[i]]);
+          RemoveAdmin(inn_admins[i]);
           inn_admins.splice(i,1);
           --i;
       }
     }
-    // let sum = inn_admins.map(p => "`T# " + p + "`").join('\n')
-    // return "`AAdmins of Implink News Network:`\n" + sum
+    let sum = super_admins.map(p => "`T# " + p + "`").join('\n')
+    let sum2 = inn_admins.map(p => "`T# " + p + "`").join('\n')
+    return "`AINN Admin Member List:`\n`c----------------------`\n`ASUPER:`\n" + sum + "\n`c----------------------`\n`AREGULAR:`\n" + sum2
   }
   if( (super_admins.includes(context.caller) || inn_admins.includes(context.caller)) && 'admin' in args) {
     if (args.admin == "members") return MemberList();
