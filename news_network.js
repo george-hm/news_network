@@ -19,7 +19,7 @@ function(context, args)//list:true
   ].join("\n")
   function Admin()
   {
-    return "nothing"
+    return []
   }
 
   function SuperAdmin()
@@ -31,6 +31,33 @@ function(context, args)//list:true
     actions.push(...Admin())
     return actions
   }
+
+  function AddAdmin(name)
+  {
+    if(!name)
+      return {ok:false,msg:"Enter valid `Nname` to add to `AINN` admins"}
+    if(! #s.users.last_action({name:name}))
+      return {ok:false,msg:name+" is an invalid name"}
+    var data=#db.f({type:"inn_admin_list"}).first();
+    if(!data)
+      #db.i({type:"inn_admin_list",admins:[]});
+    #db.u1({type:"inn_admin_list"},{$addToSet:{admins:name}})
+    return {ok:true, msg:"Admin " + name + " added to `AINN`."}
+  }
+
+  function RemoveAdmin(name)
+  {
+    if(!name)
+      return {ok:false,msg:"Enter valid `Nname` to remove to `AINN` admins"}
+    if(! #s.users.last_action({name:name}))
+      return {ok:false,msg:name+" is an invalid name"}
+    var data=#db.f({type:"inn_admin_list"}).first();
+    if(!data)
+      #db.i({type:"inn_admin_list",admins:[]});
+    #db.u1({type:"inn_admin_list"},{$pull:{admins:name}})
+    return {ok:true, msg:"Admin " + name + " removed to `AINN`."}
+  }
+
   if (!args || Object.keys(args).length==0) {
     let banner = [
     "                         `D*UNDER CONSTRUCTION*`",
@@ -98,6 +125,12 @@ function(context, args)//list:true
       "       Sponsored by n00bish.t2solver - the top t2 npc farming script!",
   ];
     return listsign.join("\n")
+  }
+
+  if (super_admin.includes(context.caller && 'super_admin' in args)) {
+    if(args.super_admin=="add_admin")return AddAdmin();
+    if(args.uper_admin=="remove_admin")return RemoveAdmin();
+    return admin_header+"\n"+ SuperAdmin().join("\n")
   }
 
   //CORPS FOR INN
