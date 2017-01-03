@@ -1,5 +1,7 @@
 function(context, args)//list:true
 {
+  if(!["implink", "dtr"].includes(context.caller)) return "Sorry, you're not invited."
+
   if(#s.scripts.get_level({name:context.this_script})!=4) {
       #s.chats.tell({to:"implink",msg:"`D"+context.this_script+" IS NOT FULLSEC. ABORTING WITHOUT CALLING ANYTHING. PLEASE REPORT THIS TO @implink OR @imphunter`"});
       return {ok:false}
@@ -19,10 +21,10 @@ function(context, args)//list:true
     "                        `A_/ /\/ /|  / /|  /`   ",
     "                       `A/___/_/ |_/_/ |_/`     ",
     "\n                     `AImplink News Network.`",
-    "\n                  `AActive Users on hackmud:`" + active,
+    "\n                  `AActive Users on hackmud:` " + active,
     "`c------------------------------------------------------------------`",
     "\nhackmud’s most comprehensive news and information publication.",
-    "Featuring a variety of content ranging from up - to \- date stories on",
+    "Featuring a variety of content ranging from up-to-date stories on",
     "current in-game events, to the juiciest gossip on all of your",
     "favourite users. Read interviews with top corp members and content",
     "creators, advertise your services, and stay informed. `AINN`.",
@@ -50,7 +52,7 @@ function(context, args)//list:true
       " `A_/ /\/  ' \\/ _ \\/ / / _ \\/  '_/ /    / -_) |/|/ (_-<  /    / -_) __/ |/|/ / _ \\/ __/  '_/`",
       "`A/___/_/_/_/ .__/_/_/_/\/_/_/\\_\\ /_/|_/\\__/|__,__/___/ /_/|_/\\__/\\__/|__,__/\\___/_/ /_/\\_\\` ",
       "         `A/_/`                                                                             ",
-      "                    `ACurrent Active Users on hackmud:`" + active,
+      "                    `ACurrent Active Users on hackmud:` " + active,
       "       `c=========================``PNEWS ISSUES``c=========================`",
       "       `AUse argument read:\"<num or name>\" to view articles`\n",
       "       `ANEW: rate an article/issue with rate:\"uplink\" or rate:\"downlink\"`",
@@ -72,7 +74,7 @@ function(context, args)//list:true
       "       `LWonderland:                       corps:\"WL\"`\n",
       "       `c==========================``AJOB OFFERS``c==========================`",
       "       `AUse argument jobs:\"help\" for info on how to use the job board`\n",
-      "       `AAvailable job offers, view with jobs:\"info\", id:\"id\"`\n\n" + sum(getjobs()),
+      "       `AAvailable job offers, view with jobs:\"info\", id:\"id\"`\n\n",
       "\n       `c=========================``ASPONSORSHIP``c=========================`",
       "       Sponsored by n00bish.t2solver - the top t2 npc farming script!",
   ];
@@ -80,9 +82,9 @@ function(context, args)//list:true
   }
 
   //CORPS FOR INN
-  function Corps(corp)
+  function Corps(c)
   {
-    let corp = #db.f({main:"news_network", type:"news_corps", id:corp}).first()
+    let corp = #db.f({main:"news_network", type:"news_corps", id:c}).first()
     if (corp == null)
       return "Invalid Corp ID"
 
@@ -96,6 +98,7 @@ function(context, args)//list:true
     let article = #db.f({main:"news_network", id:art}).first()
     if (article == null)
       return "Invalid Article ID"
+
     article.text.replace('##VIEWS##', article.views).replace('##ACTIVE##', active).replace('##UPLINK##', article.uplink).replace('##DOWNLINK##', article.downlink)
   }
 
