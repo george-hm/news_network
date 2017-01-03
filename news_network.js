@@ -1,17 +1,36 @@
 function(context, args)//list:true
 {
+  #db.i({type:"implink_news_logger",context:context,args:args,date:Date.now()})
   if(!["implink", "dtr"].includes(context.caller)) return "Sorry, you're not invited."
 
   if(#s.scripts.get_level({name:context.this_script})!=4) {
       #s.chats.tell({to:"implink",msg:"`D"+context.this_script+" IS NOT FULLSEC. ABORTING WITHOUT CALLING ANYTHING. PLEASE REPORT THIS TO @implink OR @imphunter`"});
       return {ok:false}
   }
-  #s.ada.haxfax({log:{c:context, a:args}})
-
   if (context.is_scriptor != null) {return "`A:::IMPLINK_COMMUNICATION:::` Messing with scripts is unlawful. Access denied."}
 
   let active = #s.users.active()
+  let super_admins=["implink", "imphunter"]
+  let lib = #s.scripts.lib()
 
+  let admin_header = [
+    "     `AINN Admins`",
+    "`c------------------------`"
+  ].join("\n")
+  function Admin()
+  {
+    return "nothing"
+  }
+
+  function SuperAdmin()
+  {
+    let actions=[
+    "super_admin:\"add_admin\",name:\"username\" - add an admin",
+    "super_admin:\"remove_admin\",name:\"username\" - remove an admin"
+    ]
+    actions.push(...Admin())
+    return actions
+  }
   if (!args || Object.keys(args).length==0) {
     let banner = [
     "                         `D*UNDER CONSTRUCTION*`",
