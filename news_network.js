@@ -32,30 +32,30 @@ function(context, args)//list:true
     return actions
   }
 
-  function AddAdmin(name)
+  function AddAdmin(user)
   {
-    if(!name)
+    if(!user)
       return {ok:false,msg:"Enter valid `Nname` to add to `AINN` admins"}
-    if(! #s.users.last_action({name:name}))
-      return {ok:false,msg:name+" is an invalid name"}
+    if(! #s.users.last_action({name:user}))
+      return {ok:false,msg:user+" is an invalid name"}
     var data=#db.f({type:"inn_admin_list"}).first();
     if(!data)
       #db.i({type:"inn_admin_list",admins:[]});
-    #db.u1({type:"inn_admin_list"},{$addToSet:{admins:name}})
-    return {ok:true, msg:"Admin " + name + " added to `AINN`."}
+    #db.u1({type:"inn_admin_list"},{$addToSet:{admins:user}})
+    return {ok:true, msg:"Admin " + user + " added to `AINN`."}
   }
 
-  function RemoveAdmin(name)
+  function RemoveAdmin(user)
   {
-    if(!name)
+    if(!user)
       return {ok:false,msg:"Enter valid `Nname` to remove to `AINN` admins"}
-    if(! #s.users.last_action({name:name}))
-      return {ok:false,msg:name+" is an invalid name"}
+    if(! #s.users.last_action({name:user}))
+      return {ok:false,msg:user+" is an invalid name"}
     var data=#db.f({type:"inn_admin_list"}).first();
     if(!data)
       #db.i({type:"inn_admin_list",admins:[]});
-    #db.u1({type:"inn_admin_list"},{$pull:{admins:name}})
-    return {ok:true, msg:"Admin " + name + " removed to `AINN`."}
+    #db.u1({type:"inn_admin_list"},{$pull:{admins:user}})
+    return {ok:true, msg:"Admin " + user + " removed to `AINN`."}
   }
 
   if (!args || Object.keys(args).length==0) {
@@ -127,9 +127,9 @@ function(context, args)//list:true
     return listsign.join("\n")
   }
 
-  if (super_admin.includes(context.caller && 'super_admin' in args)) {
-    if(args.super_admin=="add_admin")return AddAdmin();
-    if(args.uper_admin=="remove_admin")return RemoveAdmin();
+  if (super_admins.includes(context.caller) && 'super_admin' in args) {
+    if(args.super_admin=="add_admin")return AddAdmin(args.user);
+    if(args.uper_admin=="remove_admin")return RemoveAdmin(args.user);
     return admin_header+"\n"+ SuperAdmin().join("\n")
   }
 
