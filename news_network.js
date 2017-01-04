@@ -80,13 +80,12 @@ function(context, args)//list:true
 
   function dbAccess(id, type)
   {
-    let lookup = #db.f({main:"news_network", type:type, id:id})
-    lookup
+    return #db.f({main:"news_network", type:type, id:id}).first()
   }
 
   function Corps(c)
   {
-    if (dbAccess(c, "corp_ad").first())
+    if (dbAccess(c, "corp_ad"))
       return "Invalid Corp ID"
 
     return corp.text
@@ -95,9 +94,9 @@ function(context, args)//list:true
   function Ratings(id, type)
   {
     let access = dbAccess(id, type)
-    if (access == null){return "`DCRYPTIC ERROR RFF01 PLEASE NOTIFY IMPLINK`"}
+    if (access == null){return "`DCRYPTIC ERROR RAT01 PLEASE NOTIFY IMPLINK`"}
 
-    if (dbAccess(id, type).first().indexOf(context.caller))
+    if (access.indexOf(context.caller))
       return "You have already voted!"
 
     let ratings = #db.u1({main:"news_network", type:type, id:id}, {$inc: {[vote]:1}}, {$pushToSet: {voters:context.caller}})
@@ -117,28 +116,40 @@ function(context, args)//list:true
 
   function Article(art)
   {
-    let article = dbAccess(art, "article")
-    if (article.first() == null)
+    if (dbAccess(art, "article") == null)
       return "Invalid Article ID"
 
     if (!args.m) {
       #s.chats.send({channel:"0000", msg:"I just read article " + art + " at implink.news_network!"})
     }
+    #db.u1({main:"news_network", type:"article", id:art}, {$inc: {views:1}})
     return article.text.replace('##VIEWS##', article.views).replace('##ACTIVE##', active).replace('##UPLINK##', article.uplink).replace('##DOWNLINK##', article.downlink)
   }
 
-  function AddCorp(id, content, title)
+
+  function AddNew(id, content, title, type)
   {
-    if (dbAccess(id, "corp_ad").first() !== null) return "Corp ad already exists."
+    if (dbAccess(id, type) !== null) return type + " ad already exists."
 
     if (!title || !id || !content) {
       return "Missing keys. Make sure you have: `Ntitle`, `Nid` and `Ncontent`"
     }
+    for (let th of [id, title, content]) {
+      if (!args[th]) return{ok:false, msg:th + " cannot be null."}
+    }
+    if (typeof title !== "string")
+      return {ok:false,msg:"`Ntitle` must be a string."}
+
+    if (typeof content !== "string" && !Array.isArray(args.content))
+      return {ok:false,msg:"`Ncontent` must be a string or array of strings"}
+
+    if (typeof id !="string" && typeof args.id!="number")
+      return {ok:false, msg:"`Nid` must be a string or number."}
 
     #db.i({
       main: "news_network",
       id: id,
-      type: "corp_ad",
+      type: type,
       title: title,
       voters: [],
       text: content,
@@ -149,31 +160,7 @@ function(context, args)//list:true
       date_updated: Date.now()
     })
 
-    return "Corp ad " + title + " added to `AINN`."
-  }
-
-  function AddArticle(id, content, title) {
-    if (dbAccess(id, "article").first() !== null) return "Article already exists."
-
-    if (!title || !id || !content) {
-      return "Missing keys. Make sure you have: `Ntitle`, `Nid` and `Ncontent`"
-    }
-
-    #db.i({
-      main: "news_network",
-      id: id,
-      type: "article",
-      title: title,
-      voters: [],
-      text: content,
-      uplink: 0,
-      downlink: 0,
-      views: 0,
-      date_uploaded: Date.now(),
-      date_updated: Date.now()
-    })
-
-    return "Article " + id + " added to `AINN`."
+    return type + " " + title + " added to `AINN`."
   }
 
   function Donations(user, amount)
@@ -260,7 +247,7 @@ function(context, args)//list:true
 
   //gets us the article lists, sort by date (add spaces to pre:"" for indenting)
   //er, syntax error here, not sure what.
-  D.columns(articles,{
+  let artlist = D.columns(articles,{
         {name:"`AArticle`",key:"title"},
         {name:"`AUploaded`",key:"date_uploaded",dir:-1,func:d=>{
             var t=new Date(d);
@@ -285,12 +272,12 @@ function(context, args)//list:true
       "       `AUse argument read:\"<num or name>\" to view articles`\n",
       "       `ANEW: rate an article/issue with rate:\"uplink\" or rate:\"downlink\"`",
       "       `Aat the end of 'read:\"<num or name>\"'`",
-      "       `AAvilable Issues(s) :`",
-      "       Issue #1 (11/20/2016):        read:1",
-      "       Gril Interview (11/22/2016):  read:\"GRIL\"",
-      "       Issue #2 (11/24/2016):        read:2",
-      "       Issue #3 (12/06/2016):        read:3",
-      "       pay.pal heist (12/07/2016):   read:\"pay\"\n",
+      "       `AAvilable Issues(s) :`\n" + artlist,
+      // "       Issue #1 (11/20/2016):        read:1",
+      // "       Gril Interview (11/22/2016):  read:\"GRIL\"",
+      // "       Issue #2 (11/24/2016):        read:2",
+      // "       Issue #3 (12/06/2016):        read:3",
+      // "       pay.pal heist (12/07/2016):   read:\"pay\"\n",
       "       `c==========================``LCORP ADS``c==========================`",
       "       `AUse argument corps:\"<corpname>\" to view corp adverts`\n",
       "       `ACorp Adverts on implink.news_network:`\n",
@@ -328,42 +315,17 @@ function(context, args)//list:true
   }
 
   if( (super_admins.includes(context.caller) || inn_admins.includes(context.caller)) && 'admin' in args) {
-    if (args.admin == "members") return MemberList();
+    if (args.admin == "members")
+      return MemberList();
 
-    if (args.admin=="create_article") {
-      for (let th of ["id", "title", "content"]) {
-        if (!args[th]) return{ok:false, msg:th + " cannot be null."}
-      }
+    if (args.admin=="create_article")
+      return AddNew(args.id, args.content, args.title, "article")
 
-      if (typeof args.title!=="string")
-        return {ok:false,msg:"`Ntitle` must be a string."}
 
-      if (typeof args.content!=="string" && !Array.isArray(args.content))
-        return {ok:false,msg:"`Ncontent` must be a string or array of strings"}
+    if (args.admin == "create_corp_ad")
+      return AddNew(args.id, args.content, args.title, "corp_ad")
 
-      if (typeof args.id !="string" && typeof args.id!="number")
-        return {ok:false, msg:"`Nid` must be a string or number."}
 
-      return AddArticle(args.title, args.id, args.content)
-    }
-
-    if (args.admin == "create_corp_ad") {
-      for (let th of ["id", "title", "content"]) {
-        if (!args[th]) return{ok:false, msg:th + " cannot be null."}
-      }
-
-      if(typeof args.title!=="string") return {ok:false,msg:"title must be a string."}
-      if(typeof args.content!=="string" && !Array.isArray(args.content))return {ok:false,msg:"content must be a string or array of strings"}
-
-      if(typeof args.id !="string" && typeof args.id!="number") { return {ok:false, msg:"`Nid` must be a string or number."}}
-      return AddCorp(args.title, args.id, args.content)
-    }
     return admin_header+"\n" + Admin().join("\n")
   }
-  if (args.corps)
-    return Corps(args.corps)
-
-  if (args.read)
-    return Article(args.article)
-
 }
