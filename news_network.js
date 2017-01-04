@@ -7,6 +7,7 @@ function(context, args)//list:true
       #s.chats.tell({to:"implink",msg:"`D"+context.this_script+" IS NOT FULLSEC. ABORTING WITHOUT CALLING ANYTHING. PLEASE REPORT THIS TO @implink OR @imphunter`"});
       return {ok:false}
   }
+
   if (context.is_scriptor != null) {return "`A:::IMPLINK_COMMUNICATION:::` Messing with scripts is unlawful. Access denied."}
 
   let active = #s.users.active()
@@ -15,8 +16,17 @@ function(context, args)//list:true
   let admin_header = [
     "     `AINN Admins`",
     "`c------------------------`",
-    "Command List:\n",
-    "`Ncreate_article` - create a new `AINN` article requires keys: `Nid`:\"<articleid>\", context:\"really long text here\""
+    "`LKEYS:`",
+    " `Vcreate_article` `c-` Create a new `AINN` article [`COPTIONAL`]",
+    "   `LArguments:`",
+    "   `Nid` `c-` the article ID, this is used for `Nread` [`CREQUIRED`]",
+    "   `Ntitle` `c-` article title, this is shown in list:true [`CREQUIRED`]",
+    "   `Ncontent` `c-` the article content, this'll usually be a super long string [`CREQUIRED`]\n",
+    " `Vcreate_corp_ad` `c-` Create a new `AINN` corp ad [`COPTIONAL`]",
+    "   `LArguments`",
+    "   `Nid` `c-` the article ID, this is used for `Ncorps` [`CREQUIRED`]",
+    "   `Ntitle` `c-` the full name of the corp, this is displayed in list:true [`CREQUIRED`]",
+    "   `Ncontent` `c-` the corp ad content, this'll usually be a super long string [`CREQUIRED`]",
   ].join("\n")
 
   function Admin()
@@ -85,12 +95,14 @@ function(context, args)//list:true
     return "`AINN Admin Member List:`\n`c----------------------`\n`ASUPER:`\n" + sum + "\n`c----------------------`\n`AREGULAR:`\n" + sum2
   }
 
-  function AddArticle(id, content, title) {
-    if (#db.f({main: "news_network", id: id}).first() != null) return "Article already exists."
+  function AddCorp(id, content, title)
+  {
+    if (#db.f({main:"news_network", id: id, type: corp_ad})).first() == null) return "Corp add already exists."
 
     #db.i({
       main: "news_network",
       id: id,
+      type: corp_ad,
       title: title,
       voters: [],
       text: content,
@@ -100,8 +112,30 @@ function(context, args)//list:true
       date_uploaded: Date.now(),
       date_updated: Date.now()
     })
-    return "Article " + id + " added to `AINN`"
+
+    return "Corp ad " + " added to `AINN`."
   }
+
+  function AddArticle(id, content, title) {
+    if (#db.f({main: "news_network", id: id, type: article}).first() == null) return "Article already exists."
+
+    #db.i({
+      main: "news_network",
+      id: id,
+      type: article,
+      title: title,
+      voters: [],
+      text: content,
+      uplink: 0,
+      downlink: 0,
+      views: 0,
+      date_uploaded: Date.now(),
+      date_updated: Date.now()
+    })
+
+    return "Article " + id + " added to `AINN`."
+  }
+
   if (!args || Object.keys(args).length==0) {
     let banner = [
     "                         `D*UNDER CONSTRUCTION*`",
@@ -183,14 +217,14 @@ function(context, args)//list:true
     if (args.admin == "members") return MemberList();
 
     if (args.admin=="create") {
-      if (!args.title || !args.id || !args.content) {
+      if (!args.title || !args.id) {
         return "Missing keys. Make sure you have: `Ntitle`, `Nid` and `Ncontent`"
       }
       for (let th of ["id", "title", "content"]) {
         if (!args[th]) return{ok:false, msg:th + " cannot be null."}
       }
-      for (let th of ["title", "content"]) {
-        if(typef args[th] !== "string") return {ok:false, msg:th + " must be string."}
+      for (let i of ["title", "content"]) {
+        if(typeof args[i] !== "string") return {ok:false, msg:th + " must be string."}
       }
       if (typeof args.id !="string" && typeof args.id!="number") { return {ok:false, msg:"`Nid` must be a string or number."}}
       return AddArticle(args.title, args.id, args.content)
