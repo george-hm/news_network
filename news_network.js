@@ -97,12 +97,16 @@ function(context, args)//list:true
 
   function AddCorp(id, content, title)
   {
-    if (#db.f({main:"news_network", id: id, type: corp_ad})).first() == null) return "Corp add already exists."
+    if (#db.f({main:"news_network", id: id, type: corp_ad})).first() == null) return "Corp ad already exists."
+
+    if (!title || !id || !content) {
+      return "Missing keys. Make sure you have: `Ntitle`, `Nid` and `Ncontent`"
+    }
 
     #db.i({
       main: "news_network",
       id: id,
-      type: corp_ad,
+      type: "corp_ad",
       title: title,
       voters: [],
       text: content,
@@ -119,10 +123,14 @@ function(context, args)//list:true
   function AddArticle(id, content, title) {
     if (#db.f({main: "news_network", id: id, type: article}).first() == null) return "Article already exists."
 
+    if (!title || !id || !content) {
+      return "Missing keys. Make sure you have: `Ntitle`, `Nid` and `Ncontent`"
+    }
+
     #db.i({
       main: "news_network",
       id: id,
-      type: article,
+      type: "article",
       title: title,
       voters: [],
       text: content,
@@ -216,10 +224,7 @@ function(context, args)//list:true
   if( (super_admins.includes(context.caller) || inn_admins.includes(context.caller)) && 'admin' in args) {
     if (args.admin == "members") return MemberList();
 
-    if (args.admin=="create") {
-      if (!args.title || !args.id) {
-        return "Missing keys. Make sure you have: `Ntitle`, `Nid` and `Ncontent`"
-      }
+    if (args.admin=="create_article") {
       for (let th of ["id", "title", "content"]) {
         if (!args[th]) return{ok:false, msg:th + " cannot be null."}
       }
@@ -229,28 +234,42 @@ function(context, args)//list:true
       if (typeof args.id !="string" && typeof args.id!="number") { return {ok:false, msg:"`Nid` must be a string or number."}}
       return AddArticle(args.title, args.id, args.content)
     }
+
+    if (args.admin == "create_corp_ad") {
+      for (let th of ["id", "title", "content"]) {
+        if (!args[th]) return{ok:false, msg:th + " cannot be null."}
+      }
+      for (let i of ["title", "content"]) {
+        if(typeof args[i] !== "string") return {ok:false, msg:i + " must be string."}
+      }
+      if (typeof args.id !="string" && typeof args.id!="number") { return {ok:false, msg:"`Nid` must be a string or number."}}
+      return AddCorp(args.title, args.id, args.content)
+    }
     return admin_header+"\n" + Admin().join("\n")
   }
 
   //CORPS FOR INN
   function Corps(c)
   {
-    let corp = #db.f({main:"news_network", type:"news_corps", id:c}).first()
+    let corp = #db.f({main:"news_network", type:"corp_ad", id:c}).first()
     if (corp == null)
       return "Invalid Corp ID"
 
     return corp.text
   }
   if (args.corps)
-    Corps(args.corps)
+    return Corps(args.corps)
 
   function Article(art)
   {
-    let article = #db.f({main:"news_network", id:art}).first()
+    let article = #db.f({main:"news_network", type:"article", id:art}).first()
     if (article == null)
       return "Invalid Article ID"
 
-    article.text.replace('##VIEWS##', article.views).replace('##ACTIVE##', active).replace('##UPLINK##', article.uplink).replace('##DOWNLINK##', article.downlink)
+    return article.text.replace('##VIEWS##', article.views).replace('##ACTIVE##', active).replace('##UPLINK##', article.uplink).replace('##DOWNLINK##', article.downlink)
   }
+  if (args.read)
+    return Article(args.read)
+
 
 }
