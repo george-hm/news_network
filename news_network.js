@@ -144,6 +144,10 @@ function(context, args)//list:true
     return "Article " + id + " added to `AINN`."
   }
 
+  function Donations(user, amount)
+  {
+    
+  }
   if (!args || Object.keys(args).length==0) {
     let banner = [
     "                         `D*UNDER CONSTRUCTION*`",
@@ -175,6 +179,33 @@ function(context, args)//list:true
     ].join("\n");
     return banner
   }
+
+  let D = #s.dtr.lib()
+  let articles = #db.f({
+    main: "news_network",
+    type: "article"
+  }, {
+    _id: 0,
+    title: 1,
+    uplink: 1,
+    downlink: 1,
+    views: 1,
+    date_uploaded: 1
+  }).sort({
+    date_uploaded: 1
+  }).array()
+
+  D.columns(articles,[
+        {name:"`AArticle`",key:"title"},
+        {name:"`AUploaded`",key:"date_uploaded",dir:-1,func:d=>{
+            var t=new Date(d);
+            return [('0'+t.getDate()).slice(-2),('0'+(t.getMonth()+1)).slice(-2),t.getFullYear()].join('/')
+        }},
+        {name:"`AID`",key:"id",func:d=>'read:'+SJSON.stringify(d)},
+        {name:"`AViews`",key:"views",dir:-1},
+        {name:"`AUp`",key:"views",dir:-1,func:d=>'`L+'+d+'`'},
+        {name:"`ADown`",key:"views",dir:-1,func:d=>'`D-'+d+'`'}
+  },{pre:"",post:"",sep:"  "},true})
 
   if (args.list == true) {
     let listsign = [
@@ -228,9 +259,10 @@ function(context, args)//list:true
       for (let th of ["id", "title", "content"]) {
         if (!args[th]) return{ok:false, msg:th + " cannot be null."}
       }
-      for (let i of ["title", "content"]) {
-        if(typeof args[i] !== "string") return {ok:false, msg:th + " must be string."}
-      }
+
+      if (typeof args.title!=="string") return {ok:false,msg:"title must be a string."}
+      if (typeof args.content!=="string" && !Array.isArray(args.content))return {ok:false,msg:"content must be a string or array of strings"}
+
       if (typeof args.id !="string" && typeof args.id!="number") { return {ok:false, msg:"`Nid` must be a string or number."}}
       return AddArticle(args.title, args.id, args.content)
     }
@@ -239,10 +271,11 @@ function(context, args)//list:true
       for (let th of ["id", "title", "content"]) {
         if (!args[th]) return{ok:false, msg:th + " cannot be null."}
       }
-      for (let i of ["title", "content"]) {
-        if(typeof args[i] !== "string") return {ok:false, msg:i + " must be string."}
-      }
-      if (typeof args.id !="string" && typeof args.id!="number") { return {ok:false, msg:"`Nid` must be a string or number."}}
+
+      if(typeof args.title!=="string") return {ok:false,msg:"title must be a string."}
+      if(typeof args.content!=="string" && !Array.isArray(args.content))return {ok:false,msg:"content must be a string or array of strings"}
+
+      if(typeof args.id !="string" && typeof args.id!="number") { return {ok:false, msg:"`Nid` must be a string or number."}}
       return AddCorp(args.title, args.id, args.content)
     }
     return admin_header+"\n" + Admin().join("\n")
