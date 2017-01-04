@@ -114,7 +114,7 @@ function(context, args)//list:true
     "\n                  `AActive Users on hackmud:` " + active,
     "`c------------------------------------------------------------------`",
     "\nhackmud’s most comprehensive news and information publication.",
-    "Featuring a letiety of content ranging from up-to-date stories on",
+    "Featuring a variety of content ranging from up-to-date stories on",
     "current in-game events, to the juiciest gossip on all of your",
     "favourite users. Read interviews with top corp members and content",
     "creators, advertise your services, and stay informed. `AINN`.",
@@ -176,24 +176,25 @@ function(context, args)//list:true
 
     if(args.super_admin=="remove_admin")return RemoveAdmin(args.user);
 
-    if (args.admin=="create") {
-      if (!args.title || !args.id || !args.content) {
-        return "Missing keys. Make sure you have: `Ntitle`, `Nid` and `Ncontent`"
-      }
-      if (typeof args.id !="string" && typeof args.id!="number") { return {ok:false, msg:"`Nid` must be a string or number."}}
-      if (args.id.length = 0) return {ok:false, msg:"Cannot be null."}
-      if (typeof args.title != "string") {return {ok:false, msg:"`Ntitle` must be as string."}}
-      if (args.title.length = 0) return {ok:false, msg:"Cannot be null."}
-      if (typeof args.content != "string") {return {ok:false, msg:"`Ncontent must be string.`"}}
-      if (args.content.length = 0) return {ok:false, msg:"Cannot be null."}
-      return AddArticle(args.title, args.id, args.content)
-    }
     return admin_header+"\n"+ SuperAdmin().join("\n")
   }
 
   if( (super_admins.includes(context.caller) || inn_admins.includes(context.caller)) && 'admin' in args) {
     if (args.admin == "members") return MemberList();
 
+    if (args.admin=="create") {
+      if (!args.title || !args.id || !args.content) {
+        return "Missing keys. Make sure you have: `Ntitle`, `Nid` and `Ncontent`"
+      }
+      for (let th of ["id", "title", "content"]) {
+        if (!args[th]) return{ok:false, msg:th + " cannot be null."}
+      }
+      for (let th of ["title", "content"]) {
+        if(typef args[th] !== "string") return {ok:false, msg:th + " must be string."}
+      }
+      if (typeof args.id !="string" && typeof args.id!="number") { return {ok:false, msg:"`Nid` must be a string or number."}}
+      return AddArticle(args.title, args.id, args.content)
+    }
     return admin_header+"\n" + Admin().join("\n")
   }
 
