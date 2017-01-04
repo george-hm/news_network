@@ -360,4 +360,10 @@ function(context, args)//list:true
     }
     return admin_header+"\n" + Admin().join("\n")
   }
+  if (args.corps)
+    return Corps(args.corps)
+
+  if (args.read)
+    return Article(args.article)
+
 }
