@@ -13,25 +13,27 @@ function(context, args)//list:true
   let active = #s.users.active()
   let super_admins=["implink", "imphunter"]
   let lib = #s.scripts.lib()
-  let admin_header = [
-    "     `AINN Admins`",
-    "`c------------------------`",
-    "`LKEYS:`",
-    " `Vcreate_article` `c-` Create a new `AINN` article [`COPTIONAL`]",
-    "   `LArguments:`",
-    "   `Nid` `c-` the article ID, this is used for `Nread` [`CREQUIRED`]",
-    "   `Ntitle` `c-` article title, this is shown in list:true [`CREQUIRED`]",
-    "   `Ncontent` `c-` the article content, this'll usually be a super long string [`CREQUIRED`]\n",
-    " `Vcreate_corp_ad` `c-` Create a new `AINN` corp ad [`COPTIONAL`]",
-    "   `LArguments`",
-    "   `Nid` `c-` the article ID, this is used for `Ncorps` [`CREQUIRED`]",
-    "   `Ntitle` `c-` the full name of the corp, this is displayed in list:true [`CREQUIRED`]",
-    "   `Ncontent` `c-` the corp ad content, this'll usually be a super long string [`CREQUIRED`]",
-  ].join("\n")
 
+  //Long list of functions
   function Admin()
   {
-    return []
+    let admin_header = [
+      "     `AINN Admins`",
+      "`c------------------------`",
+      "`LKEYS:`",
+      " `Vcreate_article` `c-` Create a new `AINN` article [`COPTIONAL`]",
+      "   `LArguments:`",
+      "   `Nid` `c-` the article ID, this is used for `Nread` [`CREQUIRED`]",
+      "   `Ntitle` `c-` article title, this is shown in list:true [`CREQUIRED`]",
+      "   `Ncontent` `c-` the article content, this'll usually be a super long string [`CREQUIRED`]\n",
+      " `Vcreate_corp_ad` `c-` Create a new `AINN` corp ad [`COPTIONAL`]",
+      "   `LArguments`",
+      "   `Nid` `c-` the article ID, this is used for `Ncorps` [`CREQUIRED`]",
+      "   `Ntitle` `c-` the full name of the corp, this is displayed in list:true [`CREQUIRED`]",
+      "   `Ncontent` `c-` the corp ad content, this'll usually be a super long string [`CREQUIRED`]",
+    ].join("\n")
+
+    return admin_header
   }
 
   function SuperAdmin()
@@ -48,12 +50,16 @@ function(context, args)//list:true
   {
     if(!user)
       return {ok:false,msg:"Enter valid `Nname` to add to `AINN` admins"}
+
     if(! #s.users.last_action({name:user}))
       return {ok:false,msg:user+" is an invalid name"}
+
     let data=#db.f({type:"inn_admin_list"}).first();
     if(!data)
       #db.i({type:"inn_admin_list",admins:[]});
+
     #db.u1({type:"inn_admin_list"},{$addToSet:{admins:user}})
+
     return {ok:true, msg:"Admin " + user + " added to `AINN`."}
   }
 
@@ -61,43 +67,69 @@ function(context, args)//list:true
   {
     if(!user)
       return {ok:false,msg:"Enter valid `Nname` to remove to `AINN` admins"}
+
     let data=#db.f({type:"inn_admin_list"}).first();
+
     if(!data)
       #db.i({type:"inn_admin_list",admins:[]});
+
     #db.u1({type:"inn_admin_list"},{$pull:{admins:user}})
+
     return {ok:true, msg:"Admin " + user + " removed to `AINN`."}
   }
 
-  let inn_admins=#db.f({type:"inn_admin_list"}).first().admins
-
-  function MemberList()
+  function dbAccess(id, type)
   {
-    let names=inn_admins.join(",").split(",") // this is just making a copy of the list because we are going to mutate it
-    let actions=[]
-    let last_action={};
-    while(names.length>50) {
-      actions.push(...#s.users.last_action({name:names.splice(0,50)}));
+    let lookup = #db.f({main:"news_network", type:type, id:id})
+    lookup
+  }
+
+  function Corps(c)
+  {
+    if (dbAccess(c, "corp_ad").first())
+      return "Invalid Corp ID"
+
+    return corp.text
+  }
+
+  function Ratings(id, type)
+  {
+    let access = dbAccess(id, type)
+    if (access == null){return "`DCRYPTIC ERROR RFF01 PLEASE NOTIFY IMPLINK`"}
+
+    if (dbAccess(id, type).first().indexOf(context.caller))
+      return "You have already voted!"
+
+    let ratings = #db.u1({main:"news_network", type:type, id:id}, {$inc: {[vote]:1}}, {$pushToSet: {voters:context.caller}})
+    if (args.rate === "uplink") {
+      let vote = uplink
+      ratings
+      return {ok:true, msg:"You have successfully uplinked article " + id}
+    } //Could probably make these more efficient?
+
+    if (args.rate == "downlink") {
+      let vote = downlink
+      ratings
+      return {ok:true, msg:"You have successfully downlinked article " + id}
     }
-    actions.push(...#s.users.last_action({name:names}));
-    for(let i=0;i<actions.length;++i) {
-      if(actions[i])
-        last_action[actions[i].n]=new Date(actions[i].t||0)/1
+
+  }
+
+  function Article(art)
+  {
+    let article = dbAccess(art, "article")
+    if (article.first() == null)
+      return "Invalid Article ID"
+
+    if (!args.m) {
+      #s.chats.send({channel:"0000", msg:"I just read article " + art + " at implink.news_network!"})
     }
-    for(let i=0;i<inn_admins.length;++i) {
-      if(!last_action[inn_admins[i]] || _START-last_action[inn_admins[i]]>20*24*3600*1000) {
-          RemoveAdmin(inn_admins[i]);
-          inn_admins.splice(i,1);
-          --i;
-      }
-    }
-    let sum = super_admins.map(p => "`T# " + p + "`").join('\n')
-    let sum2 = inn_admins.map(p => "`T# " + p + "`").join('\n')
-    return "`AINN Admin Member List:`\n`c----------------------`\n`ASUPER:`\n" + sum + "\n`c----------------------`\n`AREGULAR:`\n" + sum2
+    return article.text.replace('##VIEWS##', article.views).replace('##ACTIVE##', active).replace('##UPLINK##', article.uplink).replace('##DOWNLINK##', article.downlink)
   }
 
   function AddCorp(id, content, title)
   {
-    if (#db.f({main:"news_network", id: id, type: corp_ad})).first() == null) return "Corp ad already exists."
+    if (dbAccess(id, "corp_ad").first() !== null) return "Corp ad already exists."
 
     if (!title || !id || !content) {
       return "Missing keys. Make sure you have: `Ntitle`, `Nid` and `Ncontent`"
@@ -117,11 +149,11 @@ function(context, args)//list:true
       date_updated: Date.now()
     })
 
-    return "Corp ad " + " added to `AINN`."
+    return "Corp ad " + title + " added to `AINN`."
   }
 
   function AddArticle(id, content, title) {
-    if (#db.f({main: "news_network", id: id, type: article}).first() == null) return "Article already exists."
+    if (dbAccess(id, "article").first() !== null) return "Article already exists."
 
     if (!title || !id || !content) {
       return "Missing keys. Make sure you have: `Ntitle`, `Nid` and `Ncontent`"
@@ -146,8 +178,38 @@ function(context, args)//list:true
 
   function Donations(user, amount)
   {
-    
+    if(! #s.users.last_action({name:user}))
+    return {ok:false,msg:user+" is an invalid name"}
+    // TODO: Finish this function
   }
+
+  let inn_admins=#db.f({type:"inn_admin_list"}).first().admins
+  function MemberList()
+  {
+    let names=inn_admins.join(",").split(",") // this is just making a copy of the list because we are going to mutate it
+    let actions=[]
+    let last_action={};
+    while(names.length>50) {
+      actions.push(...#s.users.last_action({name:names.splice(0,50)}));
+    }
+    actions.push(...#s.users.last_action({name:names}));
+    for(let i=0;i<actions.length;++i) {
+      if(actions[i])
+        last_action[actions[i].n]=new Date(actions[i].t||0)/1
+    }
+    for(let i=0;i<inn_admins.length;++i) {
+      if(!last_action[inn_admins[i]] || _START-last_action[inn_admins[i]]>20*24*3600*1000) {
+        RemoveAdmin(inn_admins[i]);
+        inn_admins.splice(i,1);
+        --i;
+      }
+    }
+    let sum = super_admins.map(p => "`T# " + p + "`").join('\n')
+    let sum2 = inn_admins.map(p => "`T# " + p + "`").join('\n')
+    return "`AINN Admin Member List:`\n`c----------------------`\n`ASUPER:`\n" + sum + "\n`c----------------------`\n`AREGULAR:`\n" + sum2
+  }
+
+
   if (!args || Object.keys(args).length==0) {
     let banner = [
     "                         `D*UNDER CONSTRUCTION*`",
@@ -180,6 +242,7 @@ function(context, args)//list:true
     return banner
   }
 
+  //call dtrs shit
   let D = #s.dtr.lib()
   let articles = #db.f({
     main: "news_network",
@@ -195,7 +258,9 @@ function(context, args)//list:true
     date_uploaded: 1
   }).array()
 
-  D.columns(articles,[
+  //gets us the article lists, sort by date (add spaces to pre:"" for indenting)
+  //er, syntax error here, not sure what.
+  D.columns(articles,{
         {name:"`AArticle`",key:"title"},
         {name:"`AUploaded`",key:"date_uploaded",dir:-1,func:d=>{
             var t=new Date(d);
@@ -205,7 +270,7 @@ function(context, args)//list:true
         {name:"`AViews`",key:"views",dir:-1},
         {name:"`AUp`",key:"views",dir:-1,func:d=>'`L+'+d+'`'},
         {name:"`ADown`",key:"views",dir:-1,func:d=>'`D-'+d+'`'}
-  },{pre:"",post:"",sep:"  "},true})
+  },{pre:"",post:"",sep:"  "},true)
 
   if (args.list == true) {
     let listsign = [
@@ -240,10 +305,20 @@ function(context, args)//list:true
       "       `AAvailable job offers, view with jobs:\"info\", id:\"id\"`\n\n",
       "\n       `c=========================``ASPONSORSHIP``c=========================`",
       "       Sponsored by n00bish.t2solver - the top t2 npc farming script!",
-  ];
-    return listsign.join("\n")
+    ].join("\n");
+    return listsign
   }
 
+
+  //CORPS FOR INN
+  if (args.corps)
+    return Corps(args.corps)
+
+  //ISSUES OF INN
+  if (args.read)
+    return Article(args.read)
+
+  ///ADMIN PANEL
   if (super_admins.includes(context.caller) && 'super_admin' in args) {
     if(args.super_admin=="add_admin")return AddAdmin(args.user);
 
@@ -260,10 +335,15 @@ function(context, args)//list:true
         if (!args[th]) return{ok:false, msg:th + " cannot be null."}
       }
 
-      if (typeof args.title!=="string") return {ok:false,msg:"title must be a string."}
-      if (typeof args.content!=="string" && !Array.isArray(args.content))return {ok:false,msg:"content must be a string or array of strings"}
+      if (typeof args.title!=="string")
+        return {ok:false,msg:"`Ntitle` must be a string."}
 
-      if (typeof args.id !="string" && typeof args.id!="number") { return {ok:false, msg:"`Nid` must be a string or number."}}
+      if (typeof args.content!=="string" && !Array.isArray(args.content))
+        return {ok:false,msg:"`Ncontent` must be a string or array of strings"}
+
+      if (typeof args.id !="string" && typeof args.id!="number")
+        return {ok:false, msg:"`Nid` must be a string or number."}
+
       return AddArticle(args.title, args.id, args.content)
     }
 
@@ -280,29 +360,4 @@ function(context, args)//list:true
     }
     return admin_header+"\n" + Admin().join("\n")
   }
-
-  //CORPS FOR INN
-  function Corps(c)
-  {
-    let corp = #db.f({main:"news_network", type:"corp_ad", id:c}).first()
-    if (corp == null)
-      return "Invalid Corp ID"
-
-    return corp.text
-  }
-  if (args.corps)
-    return Corps(args.corps)
-
-  function Article(art)
-  {
-    let article = #db.f({main:"news_network", type:"article", id:art}).first()
-    if (article == null)
-      return "Invalid Article ID"
-
-    return article.text.replace('##VIEWS##', article.views).replace('##ACTIVE##', active).replace('##UPLINK##', article.uplink).replace('##DOWNLINK##', article.downlink)
-  }
-  if (args.read)
-    return Article(args.read)
-
-
 }
