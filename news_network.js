@@ -13,8 +13,15 @@ function(context, args)//list:true
   let active = #s.users.active()
   let super_admins=["implink", "imphunter"]
   let lib = #s.scripts.lib()
+  //call dtrs shit
+  let D = #s.dtr.lib()
 
-  //Long list of functions
+  //LONG list of functions
+  function dbAccess(id, type)
+  {
+    return #db.f({main:"news_network", type:type, id:id}).first()
+  }
+
   function Admin()
   {
     let admin_header = [
@@ -47,7 +54,7 @@ function(context, args)//list:true
   }
 
   function AddAdmin(user)
-  {
+  {//SUPER ADMIN FUNCTION
     if(!user)
       return {ok:false,msg:"Enter valid `Nname` to add to `AINN` admins"}
 
@@ -64,7 +71,7 @@ function(context, args)//list:true
   }
 
   function RemoveAdmin(user)
-  {
+  {//SUPER ADMIN FUNCTION
     if(!user)
       return {ok:false,msg:"Enter valid `Nname` to remove to `AINN` admins"}
 
@@ -78,54 +85,102 @@ function(context, args)//list:true
     return {ok:true, msg:"Admin " + user + " removed to `AINN`."}
   }
 
-  function dbAccess(id, type)
-  {
-    return #db.f({main:"news_network", type:type, id:id}).first()
+  function ModStats(id, type, amount)
+  {//SUPER ADMIN FUNCTION
+    if (!id || !type || !amount || !stattype)
+      return {ok:false, msg:"Missing keys. Make sure you have `Nid`, `Ntype`, `Namount` and `Nchange`"}
+
+    if (typeof type !== "string")
+      return {ok:false,msg:"`Ntype` must be a string."}
+
+    if (typeof id != "string" && typeof id != "number")
+      return {ok:false, msg:"`Nid` must be a string or number."}
+
+    if (typeof amount != "number")
+      return {ok:false, msg:"`Namount` must be a number."}
+
+    if (!dbAccess(id, type, stattype))
+      return {ok:false, msg:type + " does not exist."}
+
+    if (amount)
+    {
+    	#db.u1({
+    		main: "news_network",
+    		id: id,
+    		type: type,
+    	}, {
+    		$inc: {
+    			[stattype]: amount,
+    		}
+    	}, {
+    		$set: {
+    			date_updated: Date.now()
+    		}
+    	})
+    }
+
+    return {ok:true, msg:"`LRESULT:`\n" + statype + " changed by: " + amount}
   }
 
   function Corps(c)
   {
-    if (dbAccess(c, "corp_ad"))
+    corp = dbAccess(c, "corp_ad")
+    if (!corp)
       return "Invalid Corp ID"
-
-    return corp.text
-  }
-
-  function Ratings(id, type)
-  {
-    let access = dbAccess(id, type)
-    if (access == null){return "`DCRYPTIC ERROR RAT01 PLEASE NOTIFY IMPLINK`"}
-
-    if (access.indexOf(context.caller))
-      return "You have already voted!"
-
-    let ratings = #db.u1({main:"news_network", type:type, id:id}, {$inc: {[vote]:1}}, {$pushToSet: {voters:context.caller}})
-    if (args.rate === "uplink") {
-      let vote = uplink
-      ratings
-      return {ok:true, msg:"You have successfully uplinked article " + id}
-    } //Could probably make these more efficient?
-
-    if (args.rate == "downlink") {
-      let vote = downlink
-      ratings
-      return {ok:true, msg:"You have successfully downlinked article " + id}
+    if (corp) {
+      #db.u1({main:"news_network", type:"corp_ad", id:c}, {$inc: {views:1}})
+      return corp.text
     }
-
+    else
+      return {ok:false, msg:"`DCRYPTIC ERROR COR01 PLEASE NOTIFY IMPLINK`"}
   }
 
   function Article(art)
   {
-    if (dbAccess(art, "article") == null)
+    let article = dbAccess(art, "article")
+    if (!article)
       return "Invalid Article ID"
 
     if (!args.m) {
       #s.chats.send({channel:"0000", msg:"I just read article " + art + " at implink.news_network!"})
     }
-    #db.u1({main:"news_network", type:"article", id:art}, {$inc: {views:1}})
+    #db.u1({
+    	main: "news_network",
+    	type: "article",
+    	id: art
+    }, {
+    	$inc: {
+    		views: 1
+    	}
+    })
     return article.text.replace('##VIEWS##', article.views).replace('##ACTIVE##', active).replace('##UPLINK##', article.uplink).replace('##DOWNLINK##', article.downlink)
   }
 
+  function Ratings(id, type)
+  {
+    if (args.rate !== "uplink" && args.rate !== "downlink")
+      return "`LUplink` or `DDownlink` only."
+
+    let access = dbAccess(id, type)
+    if (!access){return "`DCRYPTIC ERROR RAT01 PLEASE NOTIFY IMPLINK`"}
+    if (access.indexOf(context.caller))
+      return "You have already voted!"
+
+    #db.u1({
+    	main: "news_network",
+    	type: type,
+    	id: id
+    }, {
+    	$inc: {
+    		[args.rate]: 1
+    	}
+    }, {
+    	$addToSet: {
+    		voters: context.caller
+    	}
+    })
+    return "You have successfully "+args.rate+"ed artice " + id
+  }
 
   function AddNew(id, content, title, type)
   {
@@ -143,7 +198,7 @@ function(context, args)//list:true
     if (typeof content !== "string" && !Array.isArray(args.content))
       return {ok:false,msg:"`Ncontent` must be a string or array of strings"}
 
-    if (typeof id !="string" && typeof args.id!="number")
+    if (typeof id != "string" && typeof id != "number")
       return {ok:false, msg:"`Nid` must be a string or number."}
 
     #db.i({
@@ -229,8 +284,8 @@ function(context, args)//list:true
     return banner
   }
 
-  //call dtrs shit
-  let D = #s.dtr.lib()
+
+  //gets us the article lists, sort by date (add spaces to pre:"" for indenting)
   let articles = #db.f({
     main: "news_network",
     type: "article"
@@ -245,19 +300,17 @@ function(context, args)//list:true
     date_uploaded: 1
   }).array()
 
-  //gets us the article lists, sort by date (add spaces to pre:"" for indenting)
-  //er, syntax error here, not sure what.
-  let artlist = D.columns(articles,{
-        {name:"`AArticle`",key:"title"},
-        {name:"`AUploaded`",key:"date_uploaded",dir:-1,func:d=>{
-            var t=new Date(d);
-            return [('0'+t.getDate()).slice(-2),('0'+(t.getMonth()+1)).slice(-2),t.getFullYear()].join('/')
-        }},
-        {name:"`AID`",key:"id",func:d=>'read:'+SJSON.stringify(d)},
-        {name:"`AViews`",key:"views",dir:-1},
-        {name:"`AUp`",key:"views",dir:-1,func:d=>'`L+'+d+'`'},
-        {name:"`ADown`",key:"views",dir:-1,func:d=>'`D-'+d+'`'}
-  },{pre:"",post:"",sep:"  "},true)
+  let artlist = D.columns(articles,[
+    {name:"`AArticle`",key:"title"},
+    {name:"`AUploaded`",key:"date_uploaded",dir:-1,func:d=>{
+      var t=new Date(d);
+      return [('0'+t.getDate()).slice(-2),('0'+(t.getMonth()+1)).slice(-2),t.getFullYear()].join('/')
+    }},
+    {name:"`AID`",key:"id",func:d=>'read:'+JSON.stringify(d)},
+    {name:"`AViews`",key:"views",dir:-1},
+    {name:"`AUp`",key:"views",dir:-1,func:d=>'`L+'+d+'`'},
+    {name:"`ADown`",key:"views",dir:-1,func:d=>'`D-'+d+'`'}
+  ],{pre:"       ",post:"",sep:"  "},true)
 
   if (args.list == true) {
     let listsign = [
@@ -305,7 +358,7 @@ function(context, args)//list:true
   if (args.read)
     return Article(args.read)
 
-  ///ADMIN PANEL
+  //ADMIN PANEL
   if (super_admins.includes(context.caller) && 'super_admin' in args) {
     if(args.super_admin=="add_admin")return AddAdmin(args.user);
 
@@ -321,11 +374,12 @@ function(context, args)//list:true
     if (args.admin=="create_article")
       return AddNew(args.id, args.content, args.title, "article")
 
-
     if (args.admin == "create_corp_ad")
       return AddNew(args.id, args.content, args.title, "corp_ad")
 
-
     return admin_header+"\n" + Admin().join("\n")
+  }
+  else {
+    return #s.implink.news_network({list:true})
   }
 }
