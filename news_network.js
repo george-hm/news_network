@@ -13,9 +13,11 @@ function(context, args)//list:true
   let active = #s.users.active()
   let super_admins=["implink", "imphunter"]
   let lib = #s.scripts.lib()
+  let admin_sign = [
+    "         `AImplink News Network Admin Panel` v0.0.7",
+    "`c======================================================`\n"
+  ].join("\n")
   let admin_header = [
-    "     `AINN Admins`",
-    "`c------------------------`",
     "`LCOMMANDS:`",
     " `Vcreate_article` `c-` Create a new `AINN` article",
     "   `LArguments:`",
@@ -26,7 +28,11 @@ function(context, args)//list:true
     "   `LArguments:`",
     "   `Nid` `c-` the corp ID, this is used for `Ncorps` {`Cstring or number`} [`CREQUIRED`]",
     "   `Ntitle` `c-` the full name of the corp, this is displayed in list:true {`Cstring`} [`CREQUIRED`]",
-    "   `Ncontent` `c-` the corp ad content, this'll usually be a super long string {`Cstring or array of strings`} [`CREQUIRED`]\n",
+    "   `Ncontent` `c-` the corp ad content, this'll usually be a super long string {`Cstring or array of strings`} [`CREQUIRED`]\n\n",
+    "`TQuick note:`",
+    "PLEASE do not create more work for me, you have been given admin rights",
+    "because you are trusted with the role, `Ddo not` abuse this and mess",
+    "up `AINN` for me, that just means I revert your mistakes, and you are out."
   ].join("\n")
   //call dtrs shit
   let D = #s.dtr.lib()
@@ -56,7 +62,8 @@ function(context, args)//list:true
     "   `LArguments:`",
     "   `Nid` `c-` id of corp_ad or article {`Cstring`} [`CREQUIRED`]",
     "   `Ntype` `c-` specify if a `Vcorp_ad` or `Varticle` {`Cstring`} [`CREQUIRED`]",
-    "   `Nstat_type` `c-` is this `Vuplink`, `Vdownlink` or `Vviews`? {`Cstring`} [`CREQUIRED`]"
+    "   `Nstat_type` `c-` is this `Vuplink`, `Vdownlink` or `Vviews`? {`Cstring`} [`CREQUIRED`]",
+    ""
   ]
     actions.push(...Admin())
     return actions
@@ -71,6 +78,9 @@ function(context, args)//list:true
       return {ok:false,msg:user+" is an invalid name"}
 
     let data=#db.f({type:"inn_admin_list"}).first();
+    // if (data.indexOf(user))
+    //   return {ok:false, msg:"Already an admin of `AINN`"}
+
     if(!data)
       #db.i({type:"inn_admin_list",admins:[]});
 
@@ -234,7 +244,7 @@ function(context, args)//list:true
     return type + " " + title + " added to `AINN`."
   }
 
-  function Donations(user, amount)
+  function AddDonator(user, amount)
   {
     if(! #s.users.last_action({name:user}))
     return {ok:false,msg:user+" is an invalid name"}
@@ -245,6 +255,7 @@ function(context, args)//list:true
   function MemberList()
   {
     let names=inn_admins.join(",").split(",") // this is just making a copy of the list because we are going to mutate it
+    names.push(...super_admins)
     let actions=[]
     let last_action={};
     while(names.length>50) {
@@ -262,9 +273,9 @@ function(context, args)//list:true
         --i;
       }
     }
-    let sum = super_admins.map(p => "`T# " + p + "`").join('\n')
-    let sum2 = inn_admins.map(p => "`T# " + p + "`").join('\n')
-    return "`AINN Admin Member List:`\n`c----------------------`\n`ASUPER:`\n" + sum + "\n`c----------------------`\n`AREGULAR:`\n" + sum2
+    let sum = D.columns(super_admins.map(p =>({name:"`T# " + p + "`",la:"last active  -",last:D.formatTimeAgo(last_action[p])})),[{name:false,key:'name'},{key:"la"},{key:"last",dir:-1}],{pre:'',suf:'',sep:'  '},true)
+    let sum2 = D.columns(inn_admins.map(p =>({name:"`T# " + p + "`",la:"last active  -",last:D.formatTimeAgo(last_action[p])})),[{name:false,key:'name'},{key:"la"},{key:"last",dir:-1}],{pre:'',suf:'',sep:'  '},true)
+    return "\n            `AImplink News Network Admin Member List:`\n`c=====================================================================`\n\n`ASUPER:`\n" + sum + "\n\n`LWhat can super admins do?`\nUsually control critical aspects such as adding and removing admins,\nchanging view/rating counts as well as other critical aspects of `AINN`.\n\n`c=====================================================================`\n\n`AREGULAR:`\n" + sum2
   }
 
 
@@ -380,7 +391,7 @@ function(context, args)//list:true
 
     if(args.super_admin=="remove_admin")return RemoveAdmin(args.user);
 
-    return admin_header+"\n"+ SuperAdmin().join("\n")
+    return admin_sign + SuperAdmin().join("\n") +"\n" + admin_header
   }
 
   if( (super_admins.includes(context.caller) || inn_admins.includes(context.caller)) && 'admin' in args) {
@@ -393,7 +404,7 @@ function(context, args)//list:true
     if (args.admin == "create_corp_ad")
       return AddNew(args.id, args.content, args.title, "corp_ad")
 
-    return admin_header+"\n" + Admin().join("\n")
+    return admin_sign + admin_header+"\n" + Admin().join("\n")
   }
   else {
     return #s.implink.news_network({list:true})
