@@ -78,8 +78,6 @@ function(context, args)//list:true
       return {ok:false,msg:user+" is an invalid name"}
 
     let data=#db.f({type:"inn_admin_list"}).first();
-    // if (data.indexOf(user))
-    //   return {ok:false, msg:"Already an admin of `AINN`"}
 
     if(!data)
       #db.i({type:"inn_admin_list",admins:[]});
@@ -244,11 +242,23 @@ function(context, args)//list:true
     return type + " " + title + " added to `AINN`."
   }
 
-  function AddDonator(user, amount)
+  function Donations(user, amount)
   {
+    let data = #db.f({type:"inn_donation_list", donators:[]})
     if(! #s.users.last_action({name:user}))
-    return {ok:false,msg:user+" is an invalid name"}
-    // TODO: Finish this function
+      return {ok:false,msg:user+" is an invalid name"}
+    if(!data)
+      #db.i({type:"inn_donation_list",donators:{}});
+
+    if (typeof amount === "string") {
+      let num = lib.to_gc_num(amount)
+      if (typeof num === "object")
+        return "Invalid GC string."
+    }
+    if (typeof amount !== "string" && typeof amount !== "number") {
+      return "what the fuck are you doing"
+    }
+    #db.u1({type:"inn_donation_list"},{$set:{[user]:amount}})
   }
 
   let inn_admins=#db.f({type:"inn_admin_list"}).first().admins
