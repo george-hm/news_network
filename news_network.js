@@ -13,6 +13,21 @@ function(context, args)//list:true
   let active = #s.users.active()
   let super_admins=["implink", "imphunter"]
   let lib = #s.scripts.lib()
+  let admin_header = [
+    "     `AINN Admins`",
+    "`c------------------------`",
+    "`LCOMMANDS:`",
+    " `Vcreate_article` `c-` Create a new `AINN` article",
+    "   `LArguments:`",
+    "   `Nid` `c-` the article ID, this is used for `Nread` {`Cstring or number`} [`CREQUIRED`]",
+    "   `Ntitle` `c-` article title, this is shown in list:true {`Cstring`} [`CREQUIRED`]",
+    "   `Ncontent` `c-` the article content, this'll usually be a super long string {`Cstring or array of strings`} [`CREQUIRED`]\n",
+    " `Vcreate_corp_ad` `c-` Create a new `AINN` corp ad",
+    "   `LArguments:`",
+    "   `Nid` `c-` the corp ID, this is used for `Ncorps` {`Cstring or number`} [`CREQUIRED`]",
+    "   `Ntitle` `c-` the full name of the corp, this is displayed in list:true {`Cstring`} [`CREQUIRED`]",
+    "   `Ncontent` `c-` the corp ad content, this'll usually be a super long string {`Cstring or array of strings`} [`CREQUIRED`]\n",
+  ].join("\n")
   //call dtrs shit
   let D = #s.dtr.lib()
 
@@ -24,31 +39,25 @@ function(context, args)//list:true
 
   function Admin()
   {
-    let admin_header = [
-      "     `AINN Admins`",
-      "`c------------------------`",
-      "`LKEYS:`",
-      " `Vcreate_article` `c-` Create a new `AINN` article [`COPTIONAL`]",
-      "   `LArguments:`",
-      "   `Nid` `c-` the article ID, this is used for `Nread` [`CREQUIRED`]",
-      "   `Ntitle` `c-` article title, this is shown in list:true [`CREQUIRED`]",
-      "   `Ncontent` `c-` the article content, this'll usually be a super long string [`CREQUIRED`]\n",
-      " `Vcreate_corp_ad` `c-` Create a new `AINN` corp ad [`COPTIONAL`]",
-      "   `LArguments`",
-      "   `Nid` `c-` the article ID, this is used for `Ncorps` [`CREQUIRED`]",
-      "   `Ntitle` `c-` the full name of the corp, this is displayed in list:true [`CREQUIRED`]",
-      "   `Ncontent` `c-` the corp ad content, this'll usually be a super long string [`CREQUIRED`]",
-    ].join("\n")
-
-    return admin_header
+    return []
   }
 
   function SuperAdmin()
   {
     let actions=[
-    "super_admin:\"add_admin\",name:\"username\" - add an admin",
-    "super_admin:\"remove_admin\",name:\"username\" - remove an admin"
-    ]
+    "`DSUPER_ADMIN COMMANDS:`",
+    " `Vadd_admin` `c-` add a new admin to `AINN`.",
+    "   `LArguments:`",
+    "   `Nuser` `c-` specify a username {`Cstring`} [`CREQUIRED`]\n",
+    " `Vremove_admin` `c-` remove an admin from `AINN`.",
+    "   `LArguments:`",
+    "   `Nuser` `c-` specify a username {`Cstring`} [`CREQUIRED`]\n",
+    " `Vstats` `c-` modify statistics such as view count or ratings.",
+    "   `LArguments:`",
+    "   `Nid` `c-` id of corp_ad or article {`Cstring`} [`CREQUIRED`]",
+    "   `Ntype` `c-` specify if a `Vcorp_ad` or `Varticle` {`Cstring`} [`CREQUIRED`]",
+    "   `Nstat_type` `c-` is this `Vuplink`, `Vdownlink` or `Vviews`? {`Cstring`} [`CREQUIRED`]"
+  ]
     actions.push(...Admin())
     return actions
   }
@@ -100,23 +109,22 @@ function(context, args)//list:true
       return {ok:false, msg:"`Namount` must be a number."}
 
     if (!dbAccess(id, type, stattype))
-      return {ok:false, msg:type + " does not exist."}
+      return {ok:false, msg:type + " does not exist. Ya idiot."}
 
     if (amount)
     {
-    	#db.u1({
-    		main: "news_network",
-    		id: id,
-    		type: type,
-    	}, {
-    		$inc: {
-    			[stattype]: amount,
-    		}
-    	}, {
-    		$set: {
-    			date_updated: Date.now()
-    		}
-    	})
+      #db.u1({
+      	main: "news_network",
+      	id: id,
+      	type: type
+      }, {
+      	$inc: {
+      		[stattype]: amount
+      	},
+      	$set: {
+      		date_updated: Date.now()
+      	}
+      })
     }
 
     return {ok:true, msg:"`LRESULT:`\n" + statype + " changed by: " + amount}
@@ -128,7 +136,15 @@ function(context, args)//list:true
     if (!corp)
       return "Invalid Corp ID"
     if (corp) {
-      #db.u1({main:"news_network", type:"corp_ad", id:c}, {$inc: {views:1}})
+      #db.u1({
+      	main: "news_network",
+      	type: "corp_ad",
+      	id: c
+      }, {
+      	$inc: {
+      		views: 1
+      	}
+      })
       return corp.text
     }
     else
@@ -158,11 +174,12 @@ function(context, args)//list:true
 
   function Ratings(id, type)
   {
+    let access = dbAccess(id, type)
+    if (!access){return "`DCRYPTIC ERROR RAT01 PLEASE NOTIFY IMPLINK`"}
+
     if (args.rate !== "uplink" && args.rate !== "downlink")
       return "`LUplink` or `DDownlink` only."
 
-    let access = dbAccess(id, type)
-    if (!access){return "`DCRYPTIC ERROR RAT01 PLEASE NOTIFY IMPLINK`"}
     if (access.indexOf(context.caller))
       return "You have already voted!"
 
@@ -173,8 +190,7 @@ function(context, args)//list:true
     }, {
     	$inc: {
     		[args.rate]: 1
-    	}
-    }, {
+    	},
     	$addToSet: {
     		voters: context.caller
     	}
@@ -184,11 +200,11 @@ function(context, args)//list:true
 
   function AddNew(id, content, title, type)
   {
+    if (!title || !id || !content || !type)
+    return "Missing keys. Make sure you have: `Ntitle`, `Nid`, `Ncontent` and `Ntype`"
+
     if (dbAccess(id, type) !== null) return type + " ad already exists."
 
-    if (!title || !id || !content) {
-      return "Missing keys. Make sure you have: `Ntitle`, `Nid` and `Ncontent`"
-    }
     for (let th of [id, title, content]) {
       if (!args[th]) return{ok:false, msg:th + " cannot be null."}
     }
@@ -274,7 +290,7 @@ function(context, args)//list:true
     "        If you like `AINN` please consider supporting",
     "   us by running implink.donate ! Thanks for your support! `D<3`\n",
     "`c------------------------------------------------------------------`",
-    "`ASpecial thanks to: (in order of amount donated)`",
+    "`ASpecial thanks to: (in order of amount donated)`",//THIS'LL SOON BE AUTO
     "`F1) @vdd`", //20BGC
     "`T2) @dtr`", //10BGC
     "`P3) @n00bish`", //10BGC
@@ -371,7 +387,7 @@ function(context, args)//list:true
     if (args.admin == "members")
       return MemberList();
 
-    if (args.admin=="create_article")
+    if (args.admin == "create_article")
       return AddNew(args.id, args.content, args.title, "article")
 
     if (args.admin == "create_corp_ad")
