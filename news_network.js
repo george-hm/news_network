@@ -85,7 +85,7 @@ function(context, args)//list:true
     return {ok:true, msg:"Admin " + user + " removed to `AINN`."}
   }
 
-  function ModStats(id, type, amount)
+  function ModStats(id, type, amount, stattype)
   {//SUPER ADMIN FUNCTION
     if (!id || !type || !amount || !stattype)
       return {ok:false, msg:"Missing keys. Make sure you have `Nid`, `Ntype`, `Namount` and `Nchange`"}
