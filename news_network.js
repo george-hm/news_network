@@ -14,21 +14,17 @@ function(context, args)//list:true
   let super_admins=["implink", "imphunter"]
   let lib = #s.scripts.lib()
   let admin_sign = [
-    "         `AImplink News Network Admin Panel` v0.0.7",
+    "         `AImplink News Network Admin Panel` v0.0.9",
     "`c======================================================`\n"
   ].join("\n")
-  let admin_header = [
+  let admin_body = [
     "`LCOMMANDS:`",
-    " `Vcreate_article` `c-` Create a new `AINN` article",
+    " `Vcreate` `c-` Create new `AINN` content.",
     "   `LArguments:`",
-    "   `Nid` `c-` the article ID, this is used for `Nread` {`Cstring or number`} [`CREQUIRED`]",
-    "   `Ntitle` `c-` article title, this is shown in list:true {`Cstring`} [`CREQUIRED`]",
-    "   `Ncontent` `c-` the article content, this'll usually be a super long string {`Cstring or array of strings`} [`CREQUIRED`]\n",
-    " `Vcreate_corp_ad` `c-` Create a new `AINN` corp ad",
-    "   `LArguments:`",
-    "   `Nid` `c-` the corp ID, this is used for `Ncorps` {`Cstring or number`} [`CREQUIRED`]",
-    "   `Ntitle` `c-` the full name of the corp, this is displayed in list:true {`Cstring`} [`CREQUIRED`]",
-    "   `Ncontent` `c-` the corp ad content, this'll usually be a super long string {`Cstring or array of strings`} [`CREQUIRED`]\n\n",
+    "   `Nid` `c-` the article ID, this is used for `Nread`/`Ncorps` {`Cstring or number`} [`CREQUIRED`]",
+    "   `Ntitle` `c-` content title, this is shown in list:true {`Cstring`} [`CREQUIRED`]",
+    "   `Ncontent` `c-` the main body, this'll usually be really long {`Cstring or array of strings`} [`CREQUIRED`]",
+    "   `Ntype` `c-` the type of content, `Vcorp_ad` or `Narticle` {`Cstring`} [`CREQUIRED`]\n",
     "`TQuick note:`",
     "PLEASE do not create more work for me, you have been given admin rights",
     "because you are trusted with the role, `Ddo not` abuse this and mess",
@@ -140,9 +136,10 @@ function(context, args)//list:true
 
   function Corps(c)
   {
-    corp = dbAccess(c, "corp_ad")
+    let corp = dbAccess(c, "corp_ad")
     if (!corp)
       return "Invalid Corp ID"
+
     if (corp) {
       #db.u1({
       	main: "news_network",
@@ -211,9 +208,10 @@ function(context, args)//list:true
     if (!title || !id || !content || !type)
     return "Missing keys. Make sure you have: `Ntitle`, `Nid`, `Ncontent` and `Ntype`"
 
-    if (dbAccess(id, type) !== null) return type + " ad already exists."
+    if (dbAccess(id, type) !== null)
+      return {ok:false, msg:type + " already exists on `AINN.`"}
 
-    for (let th of [id, title, content]) {
+    for (let th of [id, title, content, type]) {
       if (!args[th]) return{ok:false, msg:th + " cannot be null."}
     }
     if (typeof title !== "string")
@@ -224,6 +222,9 @@ function(context, args)//list:true
 
     if (typeof id != "string" && typeof id != "number")
       return {ok:false, msg:"`Nid` must be a string or number."}
+
+    if (type != "corp_ad" && type != "article")
+      return {ok:false, msg:"Invalid `Ntitle`, `V\"corp_ad\"` or `V\"article\"` only."}
 
     #db.i({
       main: "news_network",
@@ -255,9 +256,10 @@ function(context, args)//list:true
       if (typeof num === "object")
         return "Invalid GC string."
     }
-    if (typeof amount !== "string" && typeof amount !== "number") {
+    if (typeof amount !== "string" && typeof amount !== "number")
       return "what the fuck are you doing"
-    }
+
+
     #db.u1({type:"inn_donation_list"},{$set:{[user]:amount}})
   }
 
@@ -285,7 +287,17 @@ function(context, args)//list:true
     }
     let sum = D.columns(super_admins.map(p =>({name:"`T# " + p + "`",la:"last active  -",last:D.formatTimeAgo(last_action[p])})),[{name:false,key:'name'},{key:"la"},{key:"last",dir:-1}],{pre:'',suf:'',sep:'  '},true)
     let sum2 = D.columns(inn_admins.map(p =>({name:"`T# " + p + "`",la:"last active  -",last:D.formatTimeAgo(last_action[p])})),[{name:false,key:'name'},{key:"la"},{key:"last",dir:-1}],{pre:'',suf:'',sep:'  '},true)
-    return "\n            `AImplink News Network Admin Member List:`\n`c=====================================================================`\n\n`ASUPER:`\n" + sum + "\n\n`LWhat can super admins do?`\nUsually control critical aspects such as adding and removing admins,\nchanging view/rating counts as well as other critical aspects of `AINN`.\n\n`c=====================================================================`\n\n`AREGULAR:`\n" + sum2
+    let memlist = [
+      "\n            `AImplink News Network Admin Member List:`",
+      "`c=====================================================================`\n",
+      "`ASUPER:`\n" + sum,
+      "\n`LWhat can super admins do?`",
+      "Usually control critical aspects such as adding and removing admins,",
+      "changing view/rating counts as well as other critical aspects of `AINN`.\n",
+      "`c=====================================================================`\n",
+      "`AREGULAR:`\n" + sum2
+    ].join("\n")
+    return memlist
   }
 
 
@@ -392,29 +404,38 @@ function(context, args)//list:true
     return Corps(args.corps)
 
   //ISSUES OF INN
-  if (args.read)
-    return Article(args.read)
+  if (args.read){
+    if (args.rate)
+      return Ratings(args.read, "article")
 
+    else
+      return Article(args.read)
+  }
   //ADMIN PANEL
   if (super_admins.includes(context.caller) && 'super_admin' in args) {
-    if(args.super_admin=="add_admin")return AddAdmin(args.user);
+    if(args.super_admin=="add_admin")
+      return AddAdmin(args.user);
 
-    if(args.super_admin=="remove_admin")return RemoveAdmin(args.user);
+    if(args.super_admin=="remove_admin")
+      return RemoveAdmin(args.user);
 
-    return admin_sign + SuperAdmin().join("\n") +"\n" + admin_header
+    if (args.super_admin == "members")
+      return MemberList();
+
+    if (args.super_admin == "create")
+      return AddNew(args.id, args.content, args.title, args.type)
+
+    return admin_sign + SuperAdmin().join("\n") +"\n" + admin_body
   }
 
   if( (super_admins.includes(context.caller) || inn_admins.includes(context.caller)) && 'admin' in args) {
     if (args.admin == "members")
       return MemberList();
 
-    if (args.admin == "create_article")
-      return AddNew(args.id, args.content, args.title, "article")
+    if (args.admin == "create")
+      return AddNew(args.id, args.content, args.title, args.type)
 
-    if (args.admin == "create_corp_ad")
-      return AddNew(args.id, args.content, args.title, "corp_ad")
-
-    return admin_sign + admin_header+"\n" + Admin().join("\n")
+    return admin_sign + admin_body+"\n" + Admin().join("\n")
   }
   else {
     return #s.implink.news_network({list:true})
