@@ -14,18 +14,31 @@ function(context, args)//list:true
   let super_admins=["implink", "imphunter"]
   let lib = #s.scripts.lib()
   let admin_sign = [
-    "         `AImplink News Network Admin Panel` v0.0.9",
+    "       `AImplink News Network Admin Panel` v0.1.4",
     "`c======================================================`\n"
   ].join("\n")
   let admin_body = [
     "`LCOMMANDS:`",
     " `Vcreate` `c-` Create new `AINN` content.",
     "   `LArguments:`",
-    "   `Nid` `c-` the article ID, this is used for `Nread`/`Ncorps` {`Cstring or number`} [`CREQUIRED`]",
-    "   `Ntitle` `c-` content title, this is shown in list:true {`Cstring`} [`CREQUIRED`]",
-    "   `Ncontent` `c-` the main body, this'll usually be really long {`Cstring or array of strings`} [`CREQUIRED`]",
-    "   `Ntype` `c-` the type of content, `Vcorp_ad` or `Narticle` {`Cstring`} [`CREQUIRED`]\n",
-    "`TQuick note:`",
+    "   `Nid` `c-` the article ID, this is used for `Nread`/`Ncorps` {`Cstring or number`}",
+    "   `Ntitle` `c-` content title, this is shown in list:true {`Cstring`}",
+    "     `DIMPORTANT:` If this is a corp ad, make sure you have colour codes. e.g. title:\"\`AINN\`\"",
+    "   `Ncontent` `c-` the main body, this'll usually be really long {`Cstring or array of strings`}",
+    "   `Ntype` `c-` the type of content, `Vcorp_ad` or `Narticle` {`Cstring`}\n",
+    " `Vmembers` `c-` View `Ladmins` and `Dsuper admins` of `AINN`.\n",
+    " `Vlist` `c-` list all the current `AINN` content, and if it is `LACTIVE` or `DINACTIVE`.\n",
+    " `Vset` `c-` set `AINN` content to either `LACTIVE` or `DINACTIVE`",
+    "   `LArguments:`",
+    "   `Naction` `c-` are you `Vpull`ing (setting to active) or `Vpush`ing (setting to inactive)? {`Cstring`}",
+    "   `Nid` `c-` the content ID {`Cstring`}",
+    "   `Ntype` `c-` content type, either `Vcorp_ad` or `Varticle` {`Cstring`}\n",
+    " `Vupdate` `c-` update `AINN` content, you can only do this to `DINACTIVE` content.",
+    "   `LArguments:`",
+    "   `Nid` `c-` the content ID {`Cstring`}",
+    "   `Ntype` `c-` content type, either `Vcorp_ad` or `Varticle` {`Cstring`}",
+    "   `Ncontent` `c-` the `Dnew` content to be updated.",
+    "\n`TQuick note:`",
     "PLEASE do not create more work for me, you have been given admin rights",
     "because you are trusted with the role, `Ddo not` abuse this and mess",
     "up `AINN` for me, that just means I revert your mistakes, and you are out."
@@ -34,9 +47,14 @@ function(context, args)//list:true
   let D = #s.dtr.lib()
 
   //LONG list of functions
-  function dbAccess(id, type)
+  function dbAccess(active, id, type)
   {
-    return #db.f({main:"news_network", type:type, id:id}).first()
+    if (active == true)
+      return #db.f({main:"news_network", type:type, id:id, active:true}).first()
+    if (active == false)
+      return #db.f({main:"news_network", type:type, id:id, active:false}).first()
+    if (!active)
+      return #db.f({main:"news_network", type:type, id:id}).first()
   }
 
   function Admin()
@@ -56,9 +74,9 @@ function(context, args)//list:true
     "   `Nuser` `c-` specify a username {`Cstring`} [`CREQUIRED`]\n",
     " `Vstats` `c-` modify statistics such as view count or ratings.",
     "   `LArguments:`",
-    "   `Nid` `c-` id of corp_ad or article {`Cstring`} [`CREQUIRED`]",
-    "   `Ntype` `c-` specify if a `Vcorp_ad` or `Varticle` {`Cstring`} [`CREQUIRED`]",
-    "   `Nstat_type` `c-` is this `Vuplink`, `Vdownlink` or `Vviews`? {`Cstring`} [`CREQUIRED`]",
+    "   `Nid` `c-` id of corp_ad or article {`Cstring`}",
+    "   `Ntype` `c-` specify if a `Vcorp_ad` or `Varticle` {`Cstring`}",
+    "   `Nstat_type` `c-` is this `Vuplink`, `Vdownlink` or `Vviews`? {`Cstring`}",
     ""
   ]
     actions.push(...Admin())
@@ -101,7 +119,7 @@ function(context, args)//list:true
   function ModStats(id, type, amount, stattype)
   {//SUPER ADMIN FUNCTION
     if (!id || !type || !amount || !stattype)
-      return {ok:false, msg:"Missing keys. Make sure you have `Nid`, `Ntype`, `Namount` and `Nchange`"}
+      return {ok:false, msg:"Missing keys. Make sure you have `Nid`, `Ntype`, `Nchange` and `Namount`"}
 
     if (typeof type !== "string")
       return {ok:false,msg:"`Ntype` must be a string."}
@@ -112,7 +130,13 @@ function(context, args)//list:true
     if (typeof amount != "number")
       return {ok:false, msg:"`Namount` must be a number."}
 
-    if (!dbAccess(id, type, stattype))
+    if (typeof change != "string")
+      return {ok:false, msg:"`Nchange` must be a string."}
+
+    if (change != "uplink" && change != "downlink" && change != "views")
+      return {ok:false, msg:"`Nchange` can only be `Vuplink`, `Vdownlink` or `Vviews`"}
+
+    if (!dbAccess(id, type))
       return {ok:false, msg:type + " does not exist. Ya idiot."}
 
     if (amount)
@@ -134,9 +158,52 @@ function(context, args)//list:true
     return {ok:true, msg:"`LRESULT:`\n" + statype + " changed by: " + amount}
   }
 
+  function contentList()
+  {
+    let active = #db.f({main:"news_network", active:true}).first().array()
+    let inactive = #db.f({main:"news_network", active:false}).first().array()
+    let ret = [
+      "   `AImplink News Network Content List`",
+      "`c==========================================`",
+      "`LACTIVE` content:\n\n" + active.map(p => "Title - " + p.title + "\nType - " + p.type + "\nID - " + p.id + "\n"),
+      "\n`c==========================================`",
+      "`DINACTIVE contnet:`\n\n" +  inactive.map(p => "Title - " + p.title + "\nType - " + p.type + "\nID - " + p.id + "\n"),
+      "\n`TSUMMARY:`",
+      "`LACTIVE` content is what appears on list:true.",
+      "By default, all new `AINN` content is marked as `DINACTIVE`,",
+      "this is to prevent mistakes such as typos etc.",
+      "\n`DINACTIVE` is what the user cannot see, you need to mark this content",
+      "as `LACTIVE` if you want the user to be able to see it."
+    ].join("\n")
+    return ret
+  }
+
+  function activeSet(acttype, id, type)
+  {
+    if (acttype == "push") {
+      if (!dbAccess(id,type))
+        return {ok:false, msg:"Invalid search."}
+      if (dbAccess(id, type).active == true)
+        return {ok:false, msg:type + " " + id + " is already `DACTIVE`, perhaps you meant `Npull`?"}
+
+      #db.u1({main:"news_network", id:id, type:type}, {$set: {active:true}})
+    }
+    if (acttype == "pull") {
+      if (!dbAccess(id,type))
+      return {ok:false, msg:"Invalid search."}
+      if (dbAccess(id, type).active == false)
+      return {ok:false, msg:type + " " + id + " is already `DINACTIVE`, contact a super admin\nif you think this content should be removed permanently from `AINN`."}
+
+      #db.u1({main:"news_network", id:id, type:type}, {$set: {active:false}})
+    }
+    else
+      return {Ok:false, msg:"`Naction` must be either `Vpush` or `Vpull`"}
+  }
+
+
   function Corps(c)
   {
-    let corp = dbAccess(c, "corp_ad")
+    let corp = dbAccess(true, c, "corp_ad")
     if (!corp)
       return "Invalid Corp ID"
 
@@ -158,7 +225,7 @@ function(context, args)//list:true
 
   function Article(art)
   {
-    let article = dbAccess(art, "article")
+    let article = dbAccess(true, art, "article")
     if (!article)
       return "Invalid Article ID"
 
@@ -179,7 +246,7 @@ function(context, args)//list:true
 
   function Ratings(id, type)
   {
-    let access = dbAccess(id, type)
+    let access = dbAccess(true, id, type)
     if (!access){return "`DCRYPTIC ERROR RAT01 PLEASE NOTIFY IMPLINK`"}
 
     if (args.rate !== "uplink" && args.rate !== "downlink")
@@ -206,7 +273,7 @@ function(context, args)//list:true
   function AddNew(id, content, title, type)
   {
     if (!title || !id || !content || !type)
-    return "Missing keys. Make sure you have: `Ntitle`, `Nid`, `Ncontent` and `Ntype`"
+    return {ok:false, msg:"Missing keys. Make sure you have: `Ntitle`, `Nid`, `Ncontent` and `Ntype`"}
 
     if (dbAccess(id, type) !== null)
       return {ok:false, msg:type + " already exists on `AINN.`"}
@@ -236,31 +303,39 @@ function(context, args)//list:true
       uplink: 0,
       downlink: 0,
       views: 0,
+      active:false,
       date_uploaded: Date.now(),
       date_updated: Date.now()
     })
 
-    return type + " " + title + " added to `AINN`."
+    return {ok:true, msg:type + " " + title + " added to `AINN`."}
   }
 
   function Donations(user, amount)
   {
+    let num = lib.to_gc_num(amount)
     let data = #db.f({type:"inn_donation_list", donators:[]})
     if(! #s.users.last_action({name:user}))
       return {ok:false,msg:user+" is an invalid name"}
     if(!data)
-      #db.i({type:"inn_donation_list",donators:{}});
-
-    if (typeof amount === "string") {
-      let num = lib.to_gc_num(amount)
-      if (typeof num === "object")
-        return "Invalid GC string."
-    }
+      #db.i({
+      	type: "inn_donation_list",
+      	donators: []
+      });
     if (typeof amount !== "string" && typeof amount !== "number")
       return "what the fuck are you doing"
 
+    if (typeof amount === "string") {
+      if (typeof num === "object")
+        return "Invalid GC string."
+    }
+    if (typeof amount === "number") {
+      if (typeof num == "object")
+        return "Invalid amount."
+    }//Could probably do this in a for loop?
 
-    #db.u1({type:"inn_donation_list"},{$set:{[user]:amount}})
+    // #db.u1({type:"inn_donation_list"},{$addToSet:{donators:[user]:amount}})
+    // TODO: probably doesnt work? need a way to check if amount is 0, if so, add user, if not, inc amount >.>
   }
 
   let inn_admins=#db.f({type:"inn_admin_list"}).first().admins
@@ -344,7 +419,8 @@ function(context, args)//list:true
     uplink: 1,
     downlink: 1,
     views: 1,
-    date_uploaded: 1
+    date_uploaded: 1,
+    active:true
   }).sort({
     date_uploaded: 1
   }).array()
@@ -359,7 +435,23 @@ function(context, args)//list:true
     {name:"`AViews`",key:"views",dir:-1},
     {name:"`AUp`",key:"views",dir:-1,func:d=>'`L+'+d+'`'},
     {name:"`ADown`",key:"views",dir:-1,func:d=>'`D-'+d+'`'}
-  ],{pre:"       ",post:"",sep:"  "},true)
+  ],{pre:"       ",suf:"",sep:"  "},true)
+
+  let corps = #db.f({
+    main: "news_network",
+    type: "corp_ad",
+    active:true
+  }, {
+    _id: 0,
+    title: 1
+  }).array().sort(
+    (a,b)=>a.title.slice(2,-1)<b.title.slice(2,-1)?-1:1 //REMOVE COLOUR CODES
+  );
+
+  let corplist = D.columns(articles,[
+    {name:"`ACorp`",key:"title"},
+    {name:"`AID`",key:"id",func:d=>'read:'+JSON.stringify(d)},
+  ],{pre:"       ",suf:"",sep:"  "},true)
 
   if (args.list == true) {
     let listsign = [
@@ -382,13 +474,13 @@ function(context, args)//list:true
       // "       pay.pal heist (12/07/2016):   read:\"pay\"\n",
       "       `c==========================``LCORP ADS``c==========================`",
       "       `AUse argument corps:\"<corpname>\" to view corp adverts`\n",
-      "       `ACorp Adverts on implink.news_network:`\n",
-      "       `P(HAX) Hollow_Agent_eXperimentals: corps:\"HAX\"`",
-      "       `J(ZDC) Zero_Day_Corp:              corps:\"ZDC\"`",
-      "       `A(INN) Implink News Network:       corps:\"INN\"`",
-      "       `Lgril_trust:                       corps:\"GRIL\"`",
-      "       `Dmagma_asset_management:           corps:\"magma\"`",
-      "       `LWonderland:                       corps:\"WL\"`\n",
+      "       `ACorp Adverts on implink.news_network:`\n" + corplist,
+      // "       `P(HAX) Hollow_Agent_eXperimentals: corps:\"HAX\"`",
+      // "       `J(ZDC) Zero_Day_Corp:              corps:\"ZDC\"`",
+      // "       `A(INN) Implink News Network:       corps:\"INN\"`",
+      // "       `Lgril_trust:                       corps:\"GRIL\"`",
+      // "       `Dmagma_asset_management:           corps:\"magma\"`",
+      // "       `LWonderland:                       corps:\"WL\"`\n",
       "       `c==========================``AJOB OFFERS``c==========================`",
       "       `AUse argument jobs:\"help\" for info on how to use the job board`\n",
       "       `AAvailable job offers, view with jobs:\"info\", id:\"id\"`\n\n",
@@ -434,6 +526,12 @@ function(context, args)//list:true
 
     if (args.admin == "create")
       return AddNew(args.id, args.content, args.title, args.type)
+
+    if (args.admin == "list")
+      return contentList()
+
+    if (args.admin == "set")
+      return activeSet(args.action, args.id, args.type)
 
     return admin_sign + admin_body+"\n" + Admin().join("\n")
   }
