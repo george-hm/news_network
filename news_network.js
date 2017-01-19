@@ -4,8 +4,7 @@ function(context, args)//list:true
   if(!["implink", "dtr"].includes(context.caller)) return "Sorry, you're not invited."
 
   if(#s.scripts.get_level({name:context.this_script})!=4) {
-      #s.chats.tell({to:"implink",msg:"`D"+context.this_script+" IS NOT FULLSEC. ABORTING WITHOUT CALLING ANYTHING. PLEASE REPORT THIS TO @implink OR @imphunter`"});
-      return {ok:false}
+      return {ok:false, msg:"`DWARNING:` This script is not `LFULLSEC`! Aborting without running any code. Please report this to @implink or Imp#7404 on discord."}
   }
 
   if (context.is_scriptor != null) {return "`A:::IMPLINK_COMMUNICATION:::` Messing with scripts is unlawful. Access denied."}
@@ -37,7 +36,11 @@ function(context, args)//list:true
     "   `LArguments:`",
     "   `Nid` `c-` the content ID {`Cstring`}",
     "   `Ntype` `c-` content type, either `Vcorp_ad` or `Varticle` {`Cstring`}",
-    "   `Ncontent` `c-` the `Dnew` content to be updated.",
+    "   `Ncontent` `c-` the `Dnew` content to be updated. {`Cstring or array of strings`}\n",
+    " `Vview` `c-` view `AINN` content, even if it's `DINACTIVE`\n",
+    "   `LArguments:`"
+    "   `Nid` `c-` the id of the content"
+    "   `Ntype` `c-` is this a `Vcorp_ad` or `Varticle`?"
     "\n`TQuick note:`",
     "PLEASE do not create more work for me, you have been given admin rights",
     "because you are trusted with the role, `Ddo not` abuse this and mess",
@@ -47,7 +50,7 @@ function(context, args)//list:true
   let D = #s.dtr.lib()
 
   //LONG list of functions
-  function dbAccess(active, id, type)
+  function dbAccess(id, type, active)
   {
     if (active == true)
       return #db.f({main:"news_network", type:type, id:id, active:true}).first()
@@ -158,10 +161,34 @@ function(context, args)//list:true
     return {ok:true, msg:"`LRESULT:`\n" + statype + " changed by: " + amount}
   }
 
+  function viewContent(id,type)
+  {
+    if (!dbAccess(id, type))
+      return {ok:false, msg:"Invalid Search."}
+
+    return {ok:true, msg:dbAccess(id, type).text}
+  }
+
+  function updateContent(id, type, content)
+  {
+    if (!id || !type)
+      return {ok:false, msg:"Missing keys, check help page."}
+
+    if (!dbAcess(false, id, type))
+      return {ok:false, msg:"Invalid search."}
+
+    if (typeof content !== "string" && !Array.isArray(args.content))
+      return {ok:false,msg:"`Ncontent` must be a string or array of strings"}
+
+    #db.u1({main:"news_network", id:id, type:type}, {$set:{text:content}})
+
+    return {ok:true, msg:type + " " + id + " updated with new content."}
+  }
+
   function contentList()
   {
-    let active = #db.f({main:"news_network", active:true}).first().array()
-    let inactive = #db.f({main:"news_network", active:false}).first().array()
+    let active = #db.f({main:"news_network", active:true}).array()
+    let inactive = #db.f({main:"news_network", active:false}).array()
     let ret = [
       "   `AImplink News Network Content List`",
       "`c==========================================`",
@@ -188,7 +215,7 @@ function(context, args)//list:true
 
       #db.u1({main:"news_network", id:id, type:type}, {$set: {active:true}})
     }
-    if (acttype == "pull") {
+    else if (acttype == "pull") {
       if (!dbAccess(id,type))
       return {ok:false, msg:"Invalid search."}
       if (dbAccess(id, type).active == false)
@@ -203,7 +230,7 @@ function(context, args)//list:true
 
   function Corps(c)
   {
-    let corp = dbAccess(true, c, "corp_ad")
+    let corp = dbAccess(c, "corp_ad", true)
     if (!corp)
       return "Invalid Corp ID"
 
@@ -225,13 +252,13 @@ function(context, args)//list:true
 
   function Article(art)
   {
-    let article = dbAccess(true, art, "article")
+    let article = dbAccess(art, "article", true)
     if (!article)
       return "Invalid Article ID"
 
-    if (!args.m) {
+    if (!args.m)
       #s.chats.send({channel:"0000", msg:"I just read article " + art + " at implink.news_network!"})
-    }
+
     #db.u1({
     	main: "news_network",
     	type: "article",
@@ -246,7 +273,7 @@ function(context, args)//list:true
 
   function Ratings(id, type)
   {
-    let access = dbAccess(true, id, type)
+    let access = dbAccess(id, type, true)
     if (!access){return "`DCRYPTIC ERROR RAT01 PLEASE NOTIFY IMPLINK`"}
 
     if (args.rate !== "uplink" && args.rate !== "downlink")
@@ -267,7 +294,7 @@ function(context, args)//list:true
     		voters: context.caller
     	}
     })
-    return "You have successfully "+args.rate+"ed artice " + id
+    return {ok:true, msg:"You have successfully "+args.rate+"ed artice " + id}
   }
 
   function AddNew(id, content, title, type)
@@ -378,7 +405,6 @@ function(context, args)//list:true
 
   if (!args || Object.keys(args).length==0) {
     let banner = [
-    "                         `D*UNDER CONSTRUCTION*`",
     "                           `A_____   ___   __`  ",
     "                          `A/  _/ | / / | / /`  ",
     "                          `A/ /\/  |/ /  |/ /`  ",
@@ -455,7 +481,7 @@ function(context, args)//list:true
 
   if (args.list == true) {
     let listsign = [
-      "                            `D*UNDER CONSTRUCTION*`",
+      "                             `ANEW AND IMPROVED!`",
       "   `A____           ___      __     _  __                 _  __    __                  __ ` ",
       "  `A/  _/_ _  ___  / (_)__  / /__  / |/ /__ _    _____   / |/ /__ / /__    _____  ____/ /__`",
       " `A_/ /\/  ' \\/ _ \\/ / / _ \\/  '_/ /    / -_) |/|/ (_-<  /    / -_) __/ |/|/ / _ \\/ __/  '_/`",
@@ -464,7 +490,7 @@ function(context, args)//list:true
       "                    `ACurrent Active Users on hackmud:` " + active,
       "       `c=========================``PNEWS ISSUES``c=========================`",
       "       `AUse argument read:\"<num or name>\" to view articles`\n",
-      "       `ANEW: rate an article/issue with rate:\"uplink\" or rate:\"downlink\"`",
+      "       `ARate content by adding rate:\"uplink\" or rate:\"downlink\"`",
       "       `Aat the end of 'read:\"<num or name>\"'`",
       "       `AAvilable Issues(s) :`\n" + artlist,
       // "       Issue #1 (11/20/2016):        read:1",
@@ -482,10 +508,9 @@ function(context, args)//list:true
       // "       `Dmagma_asset_management:           corps:\"magma\"`",
       // "       `LWonderland:                       corps:\"WL\"`\n",
       "       `c==========================``AJOB OFFERS``c==========================`",
-      "       `AUse argument jobs:\"help\" for info on how to use the job board`\n",
-      "       `AAvailable job offers, view with jobs:\"info\", id:\"id\"`\n\n",
-      "\n       `c=========================``ASPONSORSHIP``c=========================`",
-      "       Sponsored by n00bish.t2solver - the top t2 npc farming script!",
+      "       `DNOTICE:` Try and break `AINN`, if you manage to find a bug, report"
+      "       it to @implink or Imp#7404 on discord for a reward."
+      "       `AJob offers will be revamped soon.`\n",
     ].join("\n");
     return listsign
   }
