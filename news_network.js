@@ -2,7 +2,7 @@ function(context, args)//list:true
 {
   #db.i({
     type:"logs",
-    date: Date.now()
+    date: Date.now(),
     caller: context.caller,
     calling_script: context.calling_script,
     is_scriptor: context.is_scriptor,
@@ -10,16 +10,14 @@ function(context, args)//list:true
     args: args
   })
 
-  if(!["implink", "dtr"].includes(context.caller)) return "Sorry, you're not invited."
-
   if(#s.scripts.get_level({name:context.this_script})!=4) {
       return {ok:false, msg:"`DWARNING:` This script is not `LFULLSEC`! Aborting without running any code. Please report this to @implink or Imp#7404 on discord."}
   }
 
-  if (context.is_scriptor != null) {return "`A:::IMPLINK_COMMUNICATION:::` Messing with scripts is unlawful. Access denied."}
+  if(context.calling_script||context.is_scriptor) {return{ok:false, msg: "`A:::IMPLINK_COMMUNICATION:::` Messing with scripts is unlawful. Access denied."}}
 
   let active = #s.users.active()
-  let super_admins=["implink", "imphunter", "alice", "dtr"]
+  let super_admins=["implink", "imphunter", "alice"]
   let lib = #s.scripts.lib()
   let admin_sign = [
     "       `AImplink News Network Admin Panel` v0.1.4",
@@ -38,7 +36,7 @@ function(context, args)//list:true
     " `Vlist` `c-` list all the current `AINN` content, and if it is `LACTIVE` or `DINACTIVE`.\n",
     " `Vset` `c-` set `AINN` content to either `LACTIVE` or `DINACTIVE`",
     "   `LArguments:`",
-    "   `Naction` `c-` are you `Vpull`ing (setting to active) or `Vpush`ing (setting to inactive)? {`Cstring`}",
+    "   `Naction` `c-` are you `Vpull`ing (setting to inactive) or `Vpush`ing (setting to active)? {`Cstring`}",
     "   `Nid` `c-` the content ID {`Cstring`}",
     "   `Ntype` `c-` content type, either `Vcorp_ad` or `Varticle` {`Cstring`}\n",
     " `Vupdate` `c-` update `AINN` content, you can only do this to `DINACTIVE` content.",
@@ -191,7 +189,7 @@ function(context, args)//list:true
     if (!id || !type)
       return {ok:false, msg:"Missing keys, check help page."}
 
-    if (!dbAcess(false, id, type))
+    if (!dbAccess(id, type, false))
       return {ok:false, msg:"Invalid search."}
 
     if (typeof content !== "string" && !Array.isArray(args.content))
@@ -243,14 +241,14 @@ function(context, args)//list:true
 
   function contentList()
   {
-    let active = #db.f({type:"news_network", active:true}).array()
-    let inactive = #db.f({type:"news_network", active:false}).array()
+    let active = #db.f({type:"news_network", active:true}).sort({date_uploaded:1}).array()
+    let inactive = #db.f({type:"news_network", active:false}).sort({date_uploaded:1}).array()
     let ret = [
       "   `AImplink News Network Content List`",
       "`c==========================================`",
-      "`LACTIVE` content:\n\n" + active.map(p => "Title - " + p.title + "\nType - " + p.content_type + "\nID - " + p.id + "\n\n").join("\n"),
+      "`LACTIVE` content:\n\n" + active.map(p => "`HID` - " + p.id + "\n`TType` - " + p.content_type + "\n`AViews` - " + p.views + "\n`LUplinks` - " + p.uplink + "\n`DDownlinks` - " + p.downlink + "\n").join("\n"),
       "\n`c==========================================`",
-      "`DINACTIVE` content:\n\n" + inactive.map(p => "Title - " + p.title + "\nType - " + p.content_type + "\nID - " + p.id + "\n\n").join("\n"),
+      "`DINACTIVE` content:\n\n" + inactive.map(p => "`HID` - " + p.id + "\n`TType` - " + p.content_type + "\n`AViews` - " + p.views + "\n`LUplinks` - " + p.uplink + "\n`DDownlinks` - " + p.downlink + "\n").join("\n"),
       "\n`TSUMMARY:`",
       "`LACTIVE` content is what appears on list:true.",
       "By default, all new `AINN` content is marked as `DINACTIVE`,",
@@ -357,7 +355,7 @@ function(context, args)//list:true
     if (args.rate !== "uplink" && args.rate !== "downlink")
       return "`LUplink` or `DDownlink` only."
 
-    if (access.indexOf(context.caller))
+    if (access.voters.indexOf(context.caller)>-1)
       return "You have already voted!"
 
     #db.u1({
@@ -372,9 +370,35 @@ function(context, args)//list:true
     		voters: context.caller
     	}
     })
-    return {ok:true, msg:"You have successfully "+args.rate+"ed artice " + id}
+    return {ok:true, msg:"You have successfully "+args.rate+"ed article " + id}
   }
 
+  function list()
+  {
+    let listsign = [
+      "                             `ANEW AND IMPROVED!`",
+      "   `A____           ___      __     _  __                 _  __    __                  __ ` ",
+      "  `A/  _/_ _  ___  / (_)__  / /__  / |/ /__ _    _____   / |/ /__ / /__    _____  ____/ /__`",
+      " `A_/ /\/  ' \\/ _ \\/ / / _ \\/  '_/ /    / -_) |/|/ (_-<  /    / -_) __/ |/|/ / _ \\/ __/  '_/`",
+      "`A/___/_/_/_/ .__/_/_/_/\/_/_/\\_\\ /_/|_/\\__/|__,__/___/ /_/|_/\\__/\\__/|__,__/\\___/_/ /_/\\_\\` ",
+      "         `A/_/`                                                                             ",
+      "                    `ACurrent Active Users on hackmud:` " + active,
+      "       `c=========================``PNEWS ISSUES``c=========================`",
+      "       `AUse argument read:\"<num or name>\" to view articles`\n",
+      "       `ARate content by adding rate:\"uplink\" or rate:\"downlink\"`",
+      "       `Aat the end of 'read:\"<num or name>\"'`",
+      "       `AAvilable Issues(s) :`\n" + artlist,
+      "       `c==========================``LCORP ADS``c==========================`",
+      "       `AUse argument corp:\"<corpname>\" to view corp adverts`\n",
+      "       `ACorp Adverts on implink.news_network:`\n" + corplist,
+      "       `c==========================``AJOB OFFERS``c==========================`",
+      "       `DNOTICE:` Try and break `AINN`, if you manage to find a bug, report",
+      "       it to @implink or Imp#7404 on discord for a reward.",
+      "       `AJob offers will be revamped soon.`\n"
+    ].join("\n");
+    return listsign
+
+  }
   function AddNew(id, content, title, type)
   {
     if (!title || !id || !content || !type)
@@ -558,39 +582,7 @@ function(context, args)//list:true
   ],{pre:"       ",suf:"",sep:"  "},true)
 
   if (args.list == true) {
-    let listsign = [
-      "                             `ANEW AND IMPROVED!`",
-      "   `A____           ___      __     _  __                 _  __    __                  __ ` ",
-      "  `A/  _/_ _  ___  / (_)__  / /__  / |/ /__ _    _____   / |/ /__ / /__    _____  ____/ /__`",
-      " `A_/ /\/  ' \\/ _ \\/ / / _ \\/  '_/ /    / -_) |/|/ (_-<  /    / -_) __/ |/|/ / _ \\/ __/  '_/`",
-      "`A/___/_/_/_/ .__/_/_/_/\/_/_/\\_\\ /_/|_/\\__/|__,__/___/ /_/|_/\\__/\\__/|__,__/\\___/_/ /_/\\_\\` ",
-      "         `A/_/`                                                                             ",
-      "                    `ACurrent Active Users on hackmud:` " + active,
-      "       `c=========================``PNEWS ISSUES``c=========================`",
-      "       `AUse argument read:\"<num or name>\" to view articles`\n",
-      "       `ARate content by adding rate:\"uplink\" or rate:\"downlink\"`",
-      "       `Aat the end of 'read:\"<num or name>\"'`",
-      "       `AAvilable Issues(s) :`\n" + artlist,
-      // "       Issue #1 (11/20/2016):        read:1",
-      // "       Gril Interview (11/22/2016):  read:\"GRIL\"",
-      // "       Issue #2 (11/24/2016):        read:2",
-      // "       Issue #3 (12/06/2016):        read:3",
-      // "       pay.pal heist (12/07/2016):   read:\"pay\"\n",
-      "       `c==========================``LCORP ADS``c==========================`",
-      "       `AUse argument corp:\"<corpname>\" to view corp adverts`\n",
-      "       `ACorp Adverts on implink.news_network:`\n" + corplist,
-      // "       `P(HAX) Hollow_Agent_eXperimentals: corps:\"HAX\"`",
-      // "       `J(ZDC) Zero_Day_Corp:              corps:\"ZDC\"`",
-      // "       `A(INN) Implink News Network:       corps:\"INN\"`",
-      // "       `Lgril_trust:                       corps:\"GRIL\"`",
-      // "       `Dmagma_asset_management:           corps:\"magma\"`",
-      // "       `LWonderland:                       corps:\"WL\"`\n",
-      "       `c==========================``AJOB OFFERS``c==========================`",
-      "       `DNOTICE:` Try and break `AINN`, if you manage to find a bug, report",
-      "       it to @implink or Imp#7404 on discord for a reward.",
-      "       `AJob offers will be revamped soon.`\n"
-    ].join("\n");
-    return listsign
+    return list()
   }
 
 
@@ -608,52 +600,53 @@ function(context, args)//list:true
   }
   //ADMIN PANEL
   if (super_admins.includes(context.caller) && 'super_admin' in args) {
-    if(args.super_admin=="add_admin")
-      return AddAdmin(args.user);
-
-    if(args.super_admin=="remove_admin")
-      return RemoveAdmin(args.user);
-
-    if(args.super_admin == "stats")
-      return ModStats(args.id, args.type, args.amount, args.stat_type)
-
-    if(args.super_admin == "reset")
-      return resetContent(args.id, args.type)
-
-    if(args.super_admin == "remove")
-      return removeContent(args.id, args.type)
-
-    if (args.super_admin == "members")
-      return MemberList();
-
-    if (args.super_admin == "create")
-      return AddNew(args.id, args.content, args.title, args.type)
-
-    return admin_sign + SuperAdmin().join("\n") +"\n" + admin_body
+    switch (args.super_admin) {
+      case "add_admin":
+        return AddAdmin(args.user);
+      case "remove_admin":
+        return RemoveAdmin(args.user);
+      case "stats":
+        return ModStats(args.id, args.type, args.amount, args.stat_type)
+      case "reset":
+        return resetContent(args.id, args.type)
+      case "remove":
+        return removeContent(args.id, args.type)
+      case "members":
+        return MemberList();
+      case "create":
+        return AddNew(args.id, args.content, args.title, args.type)
+      case "list":
+        return contentList()
+      case "set":
+        return activeSet(args.action, args.id, args.type)
+      case "update":
+        return updateContent(args.id, args.type, args.content)
+      case "view":
+        return viewContent(args.id, args.type)
+      default:
+        return admin_sign + SuperAdmin().join("\n") +"\n" + admin_body
+    }
   }
 
   if( (super_admins.includes(context.caller) || inn_admins.includes(context.caller)) && 'admin' in args) {
-    if (args.admin == "members")
-      return MemberList();
-
-    if (args.admin == "create")
-      return AddNew(args.id, args.content, args.title, args.type)
-
-    if (args.admin == "list")
-      return contentList()
-
-    if (args.admin == "set")
-      return activeSet(args.action, args.id, args.type)
-
-    if (args.admin == "update")
-      return updateContent(args.id, args.type, args.content)
-
-    if (args.admin == "view")
-      return viewContent(args.id, args.type)
-
-    return admin_sign + admin_body+"\n" + Admin().join("\n")
+    switch (args.super_admin) {
+      case "members":
+        return MemberList();
+      case "create":
+        return AddNew(args.id, args.content, args.title, args.type)
+      case "list":
+        return contentList()
+      case "set":
+        return activeSet(args.action, args.id, args.type)
+      case "update":
+        return updateContent(args.id, args.type, args.content)
+      case "view":
+        return viewContent(args.id, args.type)
+      default:
+        return admin_sign + admin_body+"\n" + Admin().join("\n")
+    }
   }
   else {
-    return #s.implink.news_network({list:true})
+    return list()
   }
 }
