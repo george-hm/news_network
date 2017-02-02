@@ -1,17 +1,21 @@
 function(context, args)//list:true
 {
-  #db.i({
-    type:"logs",
-    date: Date.now(),
-    caller: context.caller,
-    calling_script: context.calling_script,
-    is_scriptor: context.is_scriptor,
-    script: context.this_script,
-    args: args
-  })
+  let I = #s.implink.lib()
+  I.logData(context.calling_script, context.is_scriptor, args)
+
+  let promo=#db.f({type:"inn_promotions"}).first();
+  let notif = ""
+  if(!promo)
+    #db.i({type:"inn_promotions",users:[]});
+
+  if (!promo.users.includes(context.caller)) {
+    #s.jade.vita({api:{api_user:"implink",api_pass:"REDACTED", transfer:context.caller, amount:"50MGC", msg:"`AINN` promotion!"}})
+    #db.u1({type:"inn_promotions"},{$addToSet:{users:context.caller}})
+    notif = "You have been awarded 50MGC as part of a special promotion! It has been transferred to your jade.vita account.\n"
+  }
 
   if(#s.scripts.get_level({name:context.this_script})!=4) {
-      return {ok:false, msg:"`DWARNING:` This script is not `LFULLSEC`! Aborting without running any code. Please report this to @implink or Imp#7404 on discord."}
+    return {ok:false, msg:"`DWARNING:` This script is not `LFULLSEC`! Aborting without running any code. Please report this to @implink or Imp#7404 on discord."}
   }
 
   if(context.calling_script||context.is_scriptor) {return{ok:false, msg: "`A:::IMPLINK_COMMUNICATION:::` Messing with scripts is unlawful. Access denied."}}
@@ -53,8 +57,6 @@ function(context, args)//list:true
     "because you are trusted with the role, `Ddo not` abuse this and mess",
     "up `AINN` for me, that just means I revert your mistakes, and you are out."
   ].join("\n")
-  //call dtrs shit
-  let D = #s.dtr.lib()
 
   //LONG list of functions
   function dbAccess(id, type, active)
@@ -95,6 +97,11 @@ function(context, args)//list:true
     ]
     actions.push(...Admin())
     return actions
+  }
+
+  function errMsg(msg)
+  {
+    return {ok:false, msg:"`DCRYPTIC ERROR `" + msg + " PLEASE NOTIFY IMPLINK"}
   }
 
   function AddAdmin(user)
@@ -320,10 +327,10 @@ function(context, args)//list:true
       		views: 1
       	}
       })
-      return corp.content
+      return notif + corp.content.join("\n")
     }
     else
-      return {ok:false, msg:"`DCRYPTIC ERROR COR01 PLEASE NOTIFY IMPLINK`"}
+      return errMsg("COR01")
   }
 
   function Article(art)
@@ -344,13 +351,13 @@ function(context, args)//list:true
     		views: 1
     	}
     })
-    return article.content.replace('##VIEWS##', article.views).replace('##ACTIVE##', active).replace('##UPLINK##', article.uplink).replace('##DOWNLINK##', article.downlink)
+    return article.content.replace('##VIEWS##', article.views).replace('##ACTIVE##', active).replace('##UPLINK##', article.uplink).replace('##DOWNLINK##', article.downlink) + "\n\n\n" + notif
   }
 
   function Ratings(id, type)
   {
     let access = dbAccess(id, type, true)
-    if (!access){return "`DCRYPTIC ERROR RAT01 PLEASE NOTIFY IMPLINK`"}
+    if (!access){return errMsg("RAT01")}
 
     if (args.rate !== "uplink" && args.rate !== "downlink")
       return "`LUplink` or `DDownlink` only."
@@ -396,7 +403,7 @@ function(context, args)//list:true
       "       it to @implink or Imp#7404 on discord for a reward.",
       "       `AJob offers will be revamped soon.`\n"
     ].join("\n");
-    return listsign
+    return notif + listsign
 
   }
   function AddNew(id, content, title, type)
@@ -486,8 +493,8 @@ function(context, args)//list:true
         --i;
       }
     }
-    let sum = D.columns(super_admins.map(p =>({name:"`T# " + p + "`",la:"last active  -",last:D.formatTimeAgo(last_action[p])})),[{name:false,key:'name'},{key:"la"},{key:"last",dir:-1}],{pre:'',suf:'',sep:'  '},true)
-    let sum2 = D.columns(inn_admins.map(p =>({name:"`T# " + p + "`",la:"last active  -",last:D.formatTimeAgo(last_action[p])})),[{name:false,key:'name'},{key:"la"},{key:"last",dir:-1}],{pre:'',suf:'',sep:'  '},true)
+    let sum = I.format.columns(super_admins.map(p =>({name:"`T# " + p + "`",la:"last active  -",last:I.format.formatTimeAgo(last_action[p])})),[{name:false,key:'name'},{key:"la"},{key:"last",dir:-1}],{pre:'',suf:'',sep:'  '},true)
+    let sum2 = I.format.columns(inn_admins.map(p =>({name:"`T# " + p + "`",la:"last active  -",last:I.format.formatTimeAgo(last_action[p])})),[{name:false,key:'name'},{key:"la"},{key:"last",dir:-1}],{pre:'',suf:'',sep:'  '},true)
     let memlist = [
       "\n            `AImplink News Network Admin Member List:`",
       "`c=====================================================================`\n",
@@ -530,7 +537,7 @@ function(context, args)//list:true
     "`L4) @amazon`", //5BGC
     "`A5) @gril`", // 3.1BGC
     ].join("\n");
-    return banner
+    return notif + banner
   }
 
 
@@ -552,7 +559,7 @@ function(context, args)//list:true
     date_uploaded: 1
   }).array()
 
-  let artlist = D.columns(articles,[
+  let artlist = I.format.columns(articles,[
     {name:"`AArticle`",key:"title"},
     {name:"`AUploaded`",key:"date_uploaded",dir:-1,func:d=>{
       var t=new Date(d);
@@ -576,7 +583,7 @@ function(context, args)//list:true
     (a,b)=>a.title.slice(2,-1)<b.title.slice(2,-1)?-1:1 //REMOVE COLOUR CODES
   );
 
-  let corplist = D.columns(corps,[
+  let corplist = I.format.columns(corps,[
     {name:"`ACorp`",key:"title"},
     {name:"`AID`",key:"id",func:d=>'corp:'+JSON.stringify(d)},
   ],{pre:"       ",suf:"",sep:"  "},true)
@@ -591,12 +598,13 @@ function(context, args)//list:true
     return Corps(args.corp)
 
   //ISSUES OF INN
-  if (args.read){
+  let r = args.read
+  if (r){
     if (args.rate)
-      return Ratings(args.read, "article")
+      return Ratings(r, "article")
 
     else
-      return Article(args.read)
+      return Article(r)
   }
   //ADMIN PANEL
   if (super_admins.includes(context.caller) && 'super_admin' in args) {
@@ -629,7 +637,7 @@ function(context, args)//list:true
   }
 
   if( (super_admins.includes(context.caller) || inn_admins.includes(context.caller)) && 'admin' in args) {
-    switch (args.super_admin) {
+    switch (args.admin) {
       case "members":
         return MemberList();
       case "create":
