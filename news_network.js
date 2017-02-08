@@ -9,7 +9,7 @@ function(context, args)//list:true
     #db.i({type:"inn_promotions",users:[]});
 
   if (!promo.users.includes(context.caller)) {
-    #s.jade.vita({api:{api_user:"implink",api_pass:"REDACTED", transfer:context.caller, amount:"50MGC", msg:"`AINN` promotion!"}})
+    #s.jade.vita({api:{api_user:"implink",api_pass:"D!LM9434FCwygG06", transfer:context.caller, amount:"50MGC", msg:"`AINN` promotion!"}})
     #db.u1({type:"inn_promotions"},{$addToSet:{users:context.caller}})
     notif = "You have been awarded 50MGC as part of a special promotion! It has been transferred to your jade.vita account.\n"
   }
@@ -351,7 +351,12 @@ function(context, args)//list:true
     		views: 1
     	}
     })
-    return article.content.replace('##VIEWS##', article.views).replace('##ACTIVE##', active).replace('##UPLINK##', article.uplink).replace('##DOWNLINK##', article.downlink) + "\n\n\n" + notif
+
+    if (Array.isArray(article.content))
+      return article.content.join("\n").replace('##VIEWS##', article.views).replace('##ACTIVE##', active).replace('##UPLINK##', article.uplink).replace('##DOWNLINK##', article.downlink) + "\n\n\n" + CommentList(art) + "\n\n\n" + notif
+
+    else
+      return article.content.replace('##VIEWS##', article.views).replace('##ACTIVE##', active).replace('##UPLINK##', article.uplink).replace('##DOWNLINK##', article.downlink) + "\n\n\n" + CommentList(art) + "\n\n\n" + notif
   }
 
   function Ratings(id, type)
@@ -508,6 +513,92 @@ function(context, args)//list:true
     return memlist
   }
 
+  function BlackList(str, ban)
+	{
+		for(let i of ban) {
+			if(str.includes(i))
+				return {ok:false, msg:"Message contains blacklisted character: " + i};
+		}
+		return true;
+	}
+
+	function SpaceOnly(str)
+	{
+		return !(str.split("").filter(x=>x===" ").length);
+	}
+
+	function MakeComment(content, readid)
+	{
+		if (content.length > 30)
+			return {ok:false, msg:"Your comment can not be longer than 30 characters."}
+
+		if (BlackList(content, ["`", "\n"]) != true)
+			return BlackList(content, ["`", "\n"])
+
+		if (SpaceOnly(content))
+			return {ok:false, msg:"Your comment is only spaces, not allowed."}
+
+		let comment_id = l.create_rand_string(6)
+
+		#db.i({
+			type: "inn_comments",
+			id: readid,
+			comment_id: comment_id,
+			user: context.caller,
+			content: content,
+			date_posted: Date.now()
+		})
+
+		return {ok:true, msg:"Your comment has been posted to " + readid + "!\nIf you wish to remove your comment do - implink.news_network{remove_comment:\"" + comment_id + "\"}"}
+	}
+
+	function RemoveComment(comment_id)
+	{
+		if(!comment_id)
+			return {ok:false, msg:"Missing ID!"}
+
+		let check = #db.f({type:"inn_comments", comment_id:comment_id})
+
+		let admin = false
+		if ((super_admins.includes(context.caller) || inn_admins.includes(context.caller)))
+			admin == true
+
+		if (!check)
+			return {ok:false, msg:"Comment not found!"}
+
+		if (admin == false) {
+			if(check.user.indexOf(context.caller)>-1) return {ok:false, msg:"This isn't your comment! How did you even get this ID?!"}
+		}
+
+		#db.r({type:"inn_comments", comment_id:comment_id})
+		return {ok:true, msg:"Comment removed. Poster: " + check.user + " || ID: " + check.id}
+	}
+
+	function CommentList(readid)
+	{
+		let comments = #db.f({
+			type: "inn_comments",
+			id: readid
+		}, {
+			_id: 0,
+			date_uploaded: 1,
+			content: 1,
+			user: 1
+		}).sort({
+			date_uploaded: -1
+		}).array()
+
+		let sumcomments = I.format.columns(comments, [
+			{name:"`PPoster`", key:"user", func:d=>'`P'+d+'`'},
+			{name:"`CComment`", key:"content"}
+		],{pre:"		", suf:"`A|`", sep:" `A|` "}, true)
+
+		if (comments == null) {
+			sumcomments == "		No one has commented here yet!"
+		}
+		return sumcomments
+	}
+
 
   if (!args || Object.keys(args).length==0) {
     let banner = [
@@ -592,6 +683,9 @@ function(context, args)//list:true
     return list()
   }
 
+  let rm = args.remove_comment
+  if (rm)
+    return RemoveComment(rm)
 
   //CORPS FOR INN
   if (args.corp)
@@ -602,7 +696,8 @@ function(context, args)//list:true
   if (r){
     if (args.rate)
       return Ratings(r, "article")
-
+    if (args.comment)
+      return MakeCommment(args.comment, r)
     else
       return Article(r)
   }
